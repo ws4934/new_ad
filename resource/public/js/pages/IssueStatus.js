@@ -1,6 +1,6 @@
 import { ref, computed, inject, onMounted, onUnmounted } from 'vue'
-import { api } from '../api.js?v=7'
-import TrendChart from '../components/TrendChart.js?v=7'
+import { api } from '../api.js?v=8'
+import TrendChart from '../components/TrendChart.js?v=8'
 
 const CATS = { 1: '超级红包', 2: '福利购', 4: '福利直降' }
 
@@ -99,7 +99,7 @@ export default {
         ],
         band: s.map(p => p.canIssue === true ? '#10b981' : p.canIssue === false ? '#f59e0b' : 'oklch(var(--b3))'),
         titles: s.map(p => p.full.slice(0, 16)),
-        notes: s.map(p => '状态：' + (p.canIssue === true ? '直发中' : p.canIssue === false ? '手动领取' : '未知')),
+        notes: s.map(p => '状态：' + (p.canIssue === true ? '可直塞' : p.canIssue === false ? '不可直塞' : '未知')),
         empty: s.every(p => p.manual == null && p.auto == null),
       }
     })
@@ -118,8 +118,8 @@ export default {
       return isNaN(sec) ? '' : dur(sec)
     }
     const STATE = {
-      true: { text: '直发中', pill: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', num: 'text-emerald-700' },
-      false: { text: '手动领取', pill: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500', num: 'text-amber-700' },
+      true: { text: '可直塞', pill: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', num: 'text-emerald-700' },
+      false: { text: '不可直塞', pill: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500', num: 'text-amber-700' },
       null: { text: '未查询', pill: 'bg-base-200 text-base-content/60', dot: 'bg-base-content/30', num: 'text-base-content/40' },
     }
     const state = (v) => STATE[v == null ? 'null' : v]
@@ -285,8 +285,8 @@ export default {
               <TrendChart :labels="chart.labels" :series="chart.series" :band="chart.band" :titles="chart.titles" :notes="chart.notes"/>
               <p v-if="chart.empty" class="text-xs text-base-content/50 text-center">该时段接口未返回数值（数量较多、未参与该活动或尚无记录）</p>
               <div class="flex gap-4 justify-center text-[11px] text-base-content/50">
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>直发中</span>
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span>手动领取</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>可直塞</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span>不可直塞</span>
                 <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-base-300"></span>未知</span>
               </div>
             </template>

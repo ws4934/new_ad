@@ -27,7 +27,7 @@ func TestBuildMail(t *testing.T) {
 	f := false
 	m := &Monitor{Name: "主号", AppKey: "34070427", ActivityCategory: 1, CanIssue: &f}
 	subj, body := buildMail(m, &Result{CanIssue: true, AutoPayoutCnt: i64(10)})
-	if subj != "[直发提醒] 主号: 手动领取 → 直发中" {
+	if subj != "[直发提醒] 主号: 不可直塞 → 可直塞" {
 		t.Fatalf("subject %q", subj)
 	}
 	for _, want := range []string{"剩余可直发红包: 10 个", "距下轮直发目标还需发放: 超过展示门槛"} {
@@ -133,7 +133,7 @@ func TestMonitorFlow(t *testing.T) {
 		}
 		_ = json.NewDecoder(resp.Body).Decode(&out)
 		resp.Body.Close()
-		if len(out.Messages) == 0 || out.Messages[0].Subject != "[直发提醒] 主号: 手动领取 → 直发中" {
+		if len(out.Messages) != 1 || out.Messages[0].Subject != "[直发提醒] 主号: 不可直塞 → 可直塞" {
 			t.Fatalf("mailpit messages: %+v", out.Messages)
 		}
 	}

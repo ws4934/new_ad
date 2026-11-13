@@ -335,12 +335,12 @@ func notifyStatusChange(ctx context.Context, m *Monitor, res *Result) string {
 	return "已发送"
 }
 
-// StatusText 状态文案。
+// StatusText 状态文案, 对应接口 can_issue: 当前媒体 (或所在媒体组) 是否可直塞。
 func StatusText(canIssue bool) string {
 	if canIssue {
-		return "直发中"
+		return "可直塞"
 	}
-	return "手动领取"
+	return "不可直塞"
 }
 
 func countText(v *int64, none string) string {
