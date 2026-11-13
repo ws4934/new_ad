@@ -1,11 +1,21 @@
 import { createApp, ref, computed, watch, onMounted, onUpdated, nextTick } from 'vue'
-import { router } from './router.js?v=6'
-import { api, clearToken } from './api.js?v=6'
+import { router } from './router.js?v=7'
+import { api, clearToken } from './api.js?v=7'
 import Modal from './components/Modal.js'
 import MultiSelect from './components/MultiSelect.js'
 import { useToast, ToastView } from './components/Toast.js'
 
-const { createIcons } = window.lucide
+// 图标画进 <i> 内部, 不替换 <i> 本身: lucide.createIcons 会把 <i> 换成 <svg>,
+// Vue 仍持有旧 <i> 做 v-if 切换的锚点 → insertBefore(null) 崩溃, 组件停止更新、点击无反应
+const toPascal = (s) => s.replace(/(^|-)(\w)/g, (_, __, c) => c.toUpperCase())
+const createIcons = () => document.querySelectorAll('i[data-lucide]').forEach((el) => {
+  const name = el.getAttribute('data-lucide')
+  if (el.dataset.drawn === name) return
+  const node = window.lucide.icons[toPascal(name)]
+  if (!node) return console.warn('lucide icon not found:', name)
+  el.replaceChildren(window.lucide.createElement(node))
+  el.dataset.drawn = name
+})
 
 // 全局唯一 toast 实例
 const globalToast = useToast()
