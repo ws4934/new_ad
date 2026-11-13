@@ -1,15 +1,19 @@
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 // 零依赖 SVG 折线趋势图
 // props:
 //   labels: ['06-01', '06-02', ...]            x 轴标签
 //   series: [{ name, color, points: [..] }]    多条折线, null 点断开
 //   band:   ['#hex', ...] (可选)               图下方状态条, 每个点一种颜色, 与 x 轴对齐
+//   titles: ['2026-11-13 14:00', ...] (可选)    悬浮提示标题, 缺省用 labels
+//   notes:  ['直发中', ...] (可选)              悬浮提示附加行
 export default {
   props: {
     labels: { type: Array, default: () => [] },
     series: { type: Array, default: () => [] },
     band: { type: Array, default: null },
+    titles: { type: Array, default: null },
+    notes: { type: Array, default: null },
   },
   setup(props) {
     const W = 760, H = 210
@@ -76,11 +80,36 @@ export default {
       return out
     })
 
-    return { W, H, padL, padR, lines, bandRects, yTicks, xTicks }
+    // 悬浮: 按指针 x 取最近的数据点, 显示竖线 + 各系列数值
+    const hover = ref(-1)
+    const onMove = (e) => {
+      const n = props.labels.length
+      if (!n) return
+      const r = e.currentTarget.getBoundingClientRect()
+      const sx = (e.clientX - r.left) / r.width * W
+      const i = n <= 1 ? 0 : Math.round((sx - padL) / (W - padL - padR) * (n - 1))
+      hover.value = Math.min(n - 1, Math.max(0, i))
+    }
+    const tip = computed(() => {
+      const i = hover.value
+      if (i < 0 || i >= props.labels.length) return null
+      const left = x(i) / W * 100
+      return {
+        x: x(i),
+        style: left > 60 ? { right: (100 - left) + '%', marginRight: '8px' } : { left: left + '%', marginLeft: '8px' },
+        title: props.titles?.[i] ?? props.labels[i],
+        note: props.notes?.[i] || '',
+        rows: props.series.map(s => ({ name: s.name, color: s.color, v: s.points[i] })),
+        dots: props.series.filter(s => s.points[i] != null).map(s => ({ color: s.color, cy: y(s.points[i]) })),
+      }
+    })
+
+    return { W, H, padL, padR, padT, padB, lines, bandRects, yTicks, xTicks, hover, onMove, tip }
   },
   template: `
-    <div>
-      <svg :viewBox="'0 0 ' + W + ' ' + H" class="w-full select-none">
+    <div class="relative">
+      <svg :viewBox="'0 0 ' + W + ' ' + H" class="w-full select-none" style="touch-action: pan-y"
+        @pointermove="onMove" @pointerdown="onMove" @pointerleave="hover = -1">
         <!-- 网格 + y 轴刻度 -->
         <g v-for="(t, i) in yTicks" :key="i">
           <line :x1="padL" :x2="W - padR" :y1="t.y" :y2="t.y"
@@ -99,7 +128,23 @@ export default {
             <title>{{ l.name }}: {{ d.v }}</title>
           </circle>
         </g>
+        <!-- 悬浮竖线 + 高亮点 -->
+        <g v-if="tip" pointer-events="none">
+          <line :x1="tip.x" :x2="tip.x" :y1="padT" :y2="H - padB" stroke="currentColor" stroke-opacity="0.25" stroke-dasharray="3 3"/>
+          <circle v-for="(d, i) in tip.dots" :key="i" :cx="tip.x" :cy="d.cy" r="4" :fill="d.color" stroke="white" stroke-width="1.5"/>
+        </g>
+        <!-- 整个绘图区接收指针事件 -->
+        <rect :x="padL" :y="padT" :width="W - padL - padR" :height="H - padT - padB" fill="transparent"/>
       </svg>
+      <div v-if="tip" class="absolute top-1 z-10 pointer-events-none rounded-box bg-base-100 shadow-lg border border-base-300 px-3 py-2 text-xs whitespace-nowrap" :style="tip.style">
+        <div class="font-semibold mb-1 tabular-nums">{{ tip.title }}</div>
+        <div v-for="r in tip.rows" :key="r.name" class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full" :style="{ background: r.color }"></span>
+          <span class="text-base-content/60">{{ r.name }}</span>
+          <span class="ml-auto pl-3 font-semibold tabular-nums">{{ r.v == null ? '—' : r.v }}</span>
+        </div>
+        <div v-if="tip.note" class="mt-1 text-base-content/60">{{ tip.note }}</div>
+      </div>
       <!-- 状态条 (可选), 与折线共用 x 坐标 -->
       <svg v-if="bandRects.length" :viewBox="'0 0 ' + W + ' 6'" preserveAspectRatio="none" class="w-full h-1.5 block mb-2">
         <rect v-for="(r, i) in bandRects" :key="i" :x="r.x" y="0" :width="r.w" height="6" rx="3" :style="{ fill: r.c }"/>

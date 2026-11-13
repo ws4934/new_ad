@@ -61,6 +61,8 @@ export default {
         { name: '发放', color: '#ea580c', points: trend.value.map(d => d.fund) },
         { name: '使用', color: '#059669', points: trend.value.map(d => d.use) },
       ],
+      titles: trend.value.map(d => `${d.date.slice(0, 4)}-${d.date.slice(4, 6)}-${d.date.slice(6)}`),
+      notes: trend.value.map(d => '使用率：' + pct(d.use, d.fund)),
     }))
 
     const copy = async (pid) => {
@@ -147,7 +149,7 @@ export default {
             </div>
             <div v-if="loading && !chart.labels.length" class="flex justify-center py-12"><span class="loading loading-spinner"></span></div>
             <p v-else-if="!chart.labels.length" class="text-sm text-base-content/50 py-8 text-center">暂无数据</p>
-            <TrendChart v-else :labels="chart.labels" :series="chart.series"/>
+            <TrendChart v-else :labels="chart.labels" :series="chart.series" :titles="chart.titles" :notes="chart.notes"/>
           </div>
         </div>
 

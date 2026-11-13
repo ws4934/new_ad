@@ -98,6 +98,8 @@ export default {
           { name: '剩余可直发', color: '#059669', points: s.map(p => p.auto) },
         ],
         band: s.map(p => p.canIssue === true ? '#10b981' : p.canIssue === false ? '#f59e0b' : 'oklch(var(--b3))'),
+        titles: s.map(p => p.full.slice(0, 16)),
+        notes: s.map(p => '状态：' + (p.canIssue === true ? '直发中' : p.canIssue === false ? '手动领取' : '未知')),
         empty: s.every(p => p.manual == null && p.auto == null),
       }
     })
@@ -182,8 +184,8 @@ export default {
       </div>
 
       <template v-else-if="list.length">
-        <div role="tablist" class="tabs tabs-boxed bg-base-100 shadow w-fit">
-          <a v-for="t in tabs" :key="t" role="tab" class="tab gap-1.5"
+        <div role="tablist" class="tabs tabs-boxed bg-base-100 shadow w-fit max-w-full overflow-x-auto flex-nowrap">
+          <a v-for="t in tabs" :key="t" role="tab" class="tab gap-1.5 whitespace-nowrap"
              :class="{'tab-active': cur === t}" @click="filter=t">
             {{ t ? CATS[t] : '全部' }}<span class="text-xs opacity-60">{{ count(t) }}</span>
           </a>
@@ -280,7 +282,7 @@ export default {
             <p v-else-if="statsError && !stats" class="text-sm text-error py-8 text-center">{{ statsError }}</p>
             <p v-else-if="!chart.labels.length" class="text-sm text-base-content/50 py-8 text-center">该时段暂无记录</p>
             <template v-else>
-              <TrendChart :labels="chart.labels" :series="chart.series" :band="chart.band"/>
+              <TrendChart :labels="chart.labels" :series="chart.series" :band="chart.band" :titles="chart.titles" :notes="chart.notes"/>
               <p v-if="chart.empty" class="text-xs text-base-content/50 text-center">该时段接口未返回数值（超过展示门槛或尚无记录）</p>
               <div class="flex gap-4 justify-center text-[11px] text-base-content/50">
                 <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>直发中</span>
