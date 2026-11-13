@@ -3,6 +3,7 @@ package issue
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	"topsdk"
 	"topsdk/defaultability"
 	"topsdk/defaultability/request"
+	"topsdk/util"
 )
 
 const (
@@ -234,6 +236,11 @@ func Query(appKey, appSecret string, activity int) (res *Result, err error) {
 	req.SetActivityCategory(int64(activity))
 	resp, err := defaultability.NewDefaultability(&client).TaobaoTbkDgRtaSrIssueMatch(&req)
 	if err != nil {
+		// 实测 (2026-11): 福利购(2) 与不存在的类型 0/3/5 一样返回 sub_code 400, 只有 1/4 可用
+		var te *util.TopApiRequestError
+		if errors.As(err, &te) && te.SubCode == "400" && activity != 1 {
+			return nil, fmt.Errorf("淘宝接口拒绝查询「%s」(请求参数非法)，该活动可能已下线或账号未开通 [request_id %s]", ActivityNames[activity], te.RequestId)
+		}
 		return nil, err
 	}
 	d := resp.Data

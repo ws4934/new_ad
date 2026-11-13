@@ -1,6 +1,6 @@
 import { ref, computed, inject, watch, onMounted } from 'vue'
-import { api } from '../api.js?v=5'
-import TrendChart from '../components/TrendChart.js?v=5'
+import { api } from '../api.js?v=6'
+import TrendChart from '../components/TrendChart.js?v=6'
 
 const CATS = { 1: '超级红包', 2: '福利购', 3: '签到红包', 4: '福利直降', 5: '幸运赢免单', 6: '超级金币' }
 const bjToday = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)
