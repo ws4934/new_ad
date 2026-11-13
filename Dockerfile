@@ -3,23 +3,27 @@
 # ============ Stage 1: Builder ============
 FROM golang:1.25-alpine AS builder
 
-# 国内镜像加速 (可选, CI 环境可注释掉)
-ENV GOPROXY=https://goproxy.cn,direct \
+# 国内镜像加速 (CI 通过 --build-arg GOPROXY=https://proxy.golang.org,direct 覆盖)
+ARG GOPROXY=https://goproxy.cn,direct
+# 版本号由 CI 注入 (git tag), 本地构建为 dev (dev 版本不支持在线更新)
+ARG VERSION=dev
+ENV GOPROXY=${GOPROXY} \
     CGO_ENABLED=0 \
     GOOS=linux \
     GOARCH=amd64
 
 WORKDIR /build
 
-# 先拷贝 go.mod/go.sum 做依赖缓存层
+# 先拷贝 go.mod/go.sum (+ replace 指向的本地 SDK) 做依赖缓存层
 COPY go.mod go.sum ./
+COPY third_party ./third_party
 RUN go mod download
 
 # 再拷贝源代码
 COPY . .
 
-# 编译
-RUN go build -trimpath -ldflags="-s -w" -o /build/ad-monitor ./
+# 编译 (前端静态文件已 embed 进二进制)
+RUN go build -trimpath -ldflags="-s -w -X ad-monitor/internal/logic/updater.Version=${VERSION}" -o /build/ad-monitor ./
 
 # ============ Stage 2: Runtime ============
 FROM alpine:3.19
@@ -31,16 +35,17 @@ RUN apk add --no-cache ca-certificates tzdata && \
 
 WORKDIR /app
 
-# 拷贝二进制
+# 镜像自带的二进制只作为"种子": entrypoint 把它复制到 data 卷后运行,
+# 在线更新替换的是卷里的那份, 重建容器不会丢; 拉到更新的镜像时种子会覆盖旧版本。
 COPY --from=builder /build/ad-monitor /app/ad-monitor
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
-# 拷贝配置文件和静态资源 (config.yaml 打包进镜像, 符合你的选择)
+# 默认配置 (docker-compose.prod.yml 会用宿主机的 config.yaml 覆盖)
 COPY --from=builder /build/manifest /app/manifest
-COPY --from=builder /build/resource /app/resource
 
 # CSV 导出目录 (容器内通过 volume 挂载持久化)
-RUN mkdir -p /app/resource/export
+RUN chmod 755 /app/docker-entrypoint.sh && mkdir -p /app/resource/export /app/data/bin
 
 EXPOSE 8000
 
-ENTRYPOINT ["/app/ad-monitor"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

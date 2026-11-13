@@ -32,6 +32,9 @@ import (
 // Version 由 CI 通过 -ldflags "-X ad-monitor/internal/logic/updater.Version=vX.Y.Z" 注入。
 var Version = "dev"
 
+// apiBase 仅供端到端测试通过 -ldflags -X 指向模拟服务。
+var apiBase = "https://api.github.com"
+
 const (
 	Repo       = "ws4934/new_ad"
 	binaryName = "ad-monitor"
@@ -167,7 +170,7 @@ func Check(ctx context.Context, force bool) (Status, error) {
 
 func fetchLatest(ctx context.Context) (*release, error) {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet,
-		"https://api.github.com/repos/"+Repo+"/releases/latest", nil)
+		apiBase+"/repos/"+Repo+"/releases/latest", nil)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "ad-monitor-updater")
 	resp, err := httpClient.Do(req)
@@ -177,6 +180,11 @@ func fetchLatest(ctx context.Context) (*release, error) {
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, errors.New("仓库还没有发布任何 Release")
+	}
+	if resp.Header.Get("X-RateLimit-Remaining") == "0" {
+		reset, _ := strconv.ParseInt(resp.Header.Get("X-RateLimit-Reset"), 10, 64)
+		return nil, fmt.Errorf("GitHub API 访问次数超限 (未登录每小时 60 次/IP), 请在 %s 后重试",
+			time.Unix(reset, 0).Format("15:04"))
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub 返回 HTTP %d", resp.StatusCode)
