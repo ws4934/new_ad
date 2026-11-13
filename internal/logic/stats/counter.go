@@ -1,0 +1,95 @@
+package stats
+
+import (
+	"context"
+	"sync"
+	"time"
+
+	"ad-monitor/internal/consts"
+
+	"github.com/gogf/gf/v2/frame/g"
+)
+
+// Today 返回今日日期 (20060102 格式)
+func Today() string {
+	return time.Now().Format("20060102")
+}
+
+// 业务计数器批量聚合:
+// IncrCounter 只做进程内 map 累加 (微秒级, 热路径无 Redis RTT),
+// 常驻 worker 每秒把累积量用 INCRBY 批量写入 Redis。
+// 正常退出由 ShutdownPlugin 调用 FlushCounters, 不丢数据;
+// 硬崩溃 (kill -9/OOM) 最多丢 1 秒窗口 — 与 Redis AOF everysec 的持久化等级一致。
+var (
+	cntMu      sync.Mutex
+	cntPending = map[string]int64{} // redis key → 累积增量
+)
+
+const counterFlushInterval = time.Second
+
+// IncrCounter 通用计数器, 进程内聚合后由 worker 批量落 Redis
+// kind: click / taolian:ok / taolian:err / callback:ok / callback:err / fake:ok / fake:err / drop
+func IncrCounter(ctx context.Context, kind string, accountID int) {
+	day := Today()
+	var key string
+	switch kind {
+	case "click":
+		key = consts.KeyStatsClick(accountID, day)
+	case "taolian:ok":
+		key = consts.KeyStatsTaolianOk(accountID, day)
+	case "taolian:err":
+		key = consts.KeyStatsTaolianErr(accountID, day)
+	case "callback:ok":
+		key = consts.KeyStatsCallbackOk(accountID, day)
+	case "callback:err":
+		key = consts.KeyStatsCallbackErr(accountID, day)
+	case "fake:ok":
+		key = consts.KeyStatsFakeOk(accountID, day)
+	case "fake:err":
+		key = consts.KeyStatsFakeErr(accountID, day)
+	case "drop":
+		key = consts.KeyStatsDrop(accountID, day)
+	default:
+		g.Log().Warningf(ctx, "unknown counter kind: %s", kind)
+		return
+	}
+	cntMu.Lock()
+	cntPending[key]++
+	cntMu.Unlock()
+}
+
+// FlushCounters 把累积的计数批量写入 Redis (INCRBY + 35 天 TTL)
+// 单个 key 写失败则回灌内存, 下个周期重试
+func FlushCounters(ctx context.Context) {
+	cntMu.Lock()
+	if len(cntPending) == 0 {
+		cntMu.Unlock()
+		return
+	}
+	batch := cntPending
+	cntPending = make(map[string]int64, len(batch))
+	cntMu.Unlock()
+
+	ttl := int64((35 * 24 * time.Hour).Seconds())
+	for k, n := range batch {
+		if _, err := g.Redis().IncrBy(ctx, k, n); err != nil {
+			g.Log().Warningf(ctx, "flush counter failed: %s, err: %v", k, err)
+			cntMu.Lock()
+			cntPending[k] += n // 回灌重试
+			cntMu.Unlock()
+			continue
+		}
+		_, _ = g.Redis().Expire(ctx, k, ttl)
+	}
+}
+
+// StartCounterWorker 启动计数器落盘 worker, 进程启动时调用一次
+func StartCounterWorker(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(counterFlushInterval)
+		defer ticker.Stop()
+		for range ticker.C {
+			FlushCounters(ctx)
+		}
+	}()
+}

@@ -1,0 +1,47 @@
+# --- Claude Code dev workspace (LOCAL ONLY — never push) ---
+CLAUDE.md
+.claude/
+docs/
+
+# --- IDE / OS noise ---
+.idea/
+.DS_Store
+
+# --- Secrets / credentials ---
+.env
+.env.*
+proxy/
+
+# --- User data / sessions ---
+userdata/
+session/
+screenshots/
+
+# --- Personal documents and exports ---
+*_article
+*.docx
+*.doc
+*.xlsx
+*.csv
+
+# --- Working copies of the user's PPT files and rendered output ---
+work/
+
+# --- Agent skills shared by Claude Code and Codex (local, same policy as .claude/) ---
+.agents/
+
+# --- Render engine installed by the xhs skill (generated, ~190MB) ---
+.xhs-engine/
+ppt模板/
+
+# --- Local note drafts, images and PPT attachments ---
+notes/
+plan.md
+resource/export/
+resource/bloom/
+docs/
+# --- Bloom dumps written by dedup unit tests ---
+internal/logic/dedup/resource/
+
+# --- Runtime data for docker-compose.prod.yml ---
+data/

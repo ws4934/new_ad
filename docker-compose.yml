@@ -1,0 +1,52 @@
+# 开发环境: 只启动 postgres + redis, app 由开发者本地 go run
+# 用法:
+#   docker compose up -d           # 启动 pg + redis
+#   go run main.go                 # 本地跑 app (连 127.0.0.1:5432 和 127.0.0.1:6379)
+#   docker compose down            # 停止
+#   docker compose down -v         # 停止并删除 volume
+#
+# 注意: 显式声明 name 避免项目根目录包含中文时 compose 推导 project name 失败
+
+name: ad-monitor
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: ad-monitor-pg-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123456"
+      POSTGRES_DB: ad_monitor
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      # 首次启动自动执行 init.sql 建表
+      - ./hack/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ad_monitor"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: ad-monitor-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pg_data:
+    name: ad-monitor-pg-data-dev
+  redis_data:
+    name: ad-monitor-redis-data-dev

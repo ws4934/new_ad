@@ -1,0 +1,94 @@
+# 正式环境: app + postgres + redis 全容器化
+#
+# 重要:
+#   本项目不使用环境变量动态覆盖 config 的机制。正式部署前, 需要
+#   直接编辑 manifest/config/config.yaml 把:
+#     database.default.link  改成  pgsql:postgres:<正式密码>@tcp(postgres:5432)/ad_monitor
+#     redis.default.address  改成  redis:6379
+#     adMonitor.queue.redisAddr  改成  redis:6379
+#     adMonitor.callbackBaseUrl  改成  https://<你的域名>
+#     adMonitor.monitorBaseUrl   改成  https://<你的域名>
+#   然后 docker compose -f docker-compose.prod.yml build app 重新打镜像。
+#
+#   修改 config.yaml 后必须重新 build, 因为 config.yaml 打包进了镜像。
+#
+# 用法:
+#   # 1. 确认 manifest/config/config.yaml 的 host 已改为 postgres/redis
+#   # 2. 填 .env (postgres 容器密码)
+#   cp .env.example .env
+#   # 3. build + up
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml logs -f app
+
+name: ad-monitor-prod
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: ad-monitor-pg
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD required in .env}
+      POSTGRES_DB: ${DB_NAME:-ad_monitor}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./hack/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - ad-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-ad_monitor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ad-monitor-redis
+    restart: always
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - ./data/redis:/data
+    networks:
+      - ad-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ad-monitor:latest
+    container_name: ad-monitor-app
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - "${APP_PORT:-8090}:8000"
+    volumes:
+      # CSV 导出目录持久化 (挂载到当前目录, 方便直接查看和管理)
+      - ./data/export:/app/resource/export
+      # Bloom Filter 去重状态持久化 (丢失会导致历史设备号被当作新增重新写入 CSV)
+      - ./data/bloom:/app/resource/bloom
+    networks:
+      - ad-net
+    healthcheck:
+      # 静态首页 200 即认为存活 (检测 HTTP 服务挂起)
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  ad-net:
+    name: ad-monitor-net
+    driver: bridge

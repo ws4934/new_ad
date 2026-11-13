@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="/js/vendor/daisyui.min.css" rel="stylesheet">
+  <script src="/js/vendor/tailwindcss.js"></script>
+  <style>
+    [v-cloak] {
+      display: none
+    }
+
+    /* 覆盖 DaisyUI light 主题的 primary 色为橙色 (OKLCH) */
+    [data-theme="light"] {
+      --p: 70% 0.18 50;
+      /* primary: 橙色 */
+      --pc: 100% 0 0;
+      /* primary-content: 白色 */
+      --pf: 60% 0.18 50;
+      /* primary-focus: 深橙 */
+      --s: 65% 0.15 30;
+      /* secondary: 暖棕 */
+      --sc: 100% 0 0;
+      --a: 75% 0.15 80;
+      /* accent: 暖黄 */
+      --ac: 30% 0.05 80;
+      --b1: 99% 0.005 90;
+      /* base-100: 暖白 */
+      --b2: 96% 0.008 80;
+      /* base-200: 浅暖灰 */
+      --b3: 93% 0.01 80;
+      /* base-300 */
+      --bc: 30% 0.03 50;
+      /* base-content: 深色文字 */
+      --n: 40% 0.03 50;
+      /* neutral */
+      --nc: 95% 0.01 80;
+      /* neutral-content */
+      --in: 72% 0.19 231;
+      /* info: 蓝 */
+      --su: 65% 0.15 160;
+      /* success: 绿 */
+      --wa: 80% 0.18 80;
+      /* warning: 黄 */
+      --er: 65% 0.2 25;
+      /* error: 红 */
+    }
+
+    /* 侧边栏选中态 */
+    .menu li>.router-link-active {
+      background: oklch(70% 0.18 50);
+      color: #fff;
+    }
+
+    .menu li>.router-link-active i,
+    .menu li>.router-link-active svg {
+      color: #fff;
+    }
+  </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+  <div id="app" v-cloak></div>
+  <script src="/js/vendor/lucide.umd.min.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "vue": "/js/vendor/vue.esm-browser.prod.js",
+      "vue-router": "/js/vendor/vue-router.esm-browser.prod.js",
+      "lucide": "/js/vendor/lucide-shim.js"
+    }
+  }
+  </script>
+  <script type="module" src="/js/app.js?v=3"></script>
+</body>
+
+</html>

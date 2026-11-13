@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="format-detection" content="telephone=no">
+    <title></title>
+</head>
+<body>
+<script type='application/javascript'>
+
+  let tbopenurls = [
+      "tbopen://m.taobao.com/tbopen/index.html?action=ali.open.nav&module=h5&bc_fl_src=tunion_mm_mm&h5Url=https%3A%2F%2Fpages-fast.m.taobao.com%2Fwow%2Fz%2Fhdwk%2Ffarm-ssr%2Fbargain-backflow%3FdisableNav%3DYES%26forbidRefineType%3DgoOut%26shareKey%3DEKgOoGkixgxO7PA0IqWp1Zg%26ut_sk%3D1.aHoeH4zc3pgDALYjxwZuXfB4_21380790_1756976220154.CustomQRcode.farmkankanjia"
+
+        ];
+
+  let tbopenurls111 = [
+
+
+        ];
+
+
+
+    const callbackUrl = "self.location.href='hhttps://s.click.taobao.com/7ph7vip'";
+        
+    function getURLParameters() {
+        let url = window.location.href;
+        let queryString = url.split('?')[1];
+        if (!queryString) {
+            return null;
+        }
+        let params = queryString.split('&');
+        let parameters = {};
+        params.forEach(function (param) {
+            const keyValuePair = param.split('=');
+            const key = decodeURIComponent(keyValuePair[0]);
+            parameters[key] = decodeURIComponent(keyValuePair[1]);
+        });
+        return parameters;
+    }
+    function sendParametersToServer(params) {
+        const xhr = new XMLHttpRequest();
+        let url = 'weibo.php';
+        const queryString = Object.keys(params).map(function (key) {
+            return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+        }).join('&');
+        url += '?' + queryString;
+        xhr.open('GET', url, true);
+        xhr.send();
+    }
+    
+
+    function openSchemeLink(url,func1,func2) {
+        let success = false
+         window.document.addEventListener("visibilitychange", function() {
+            if (window.document.visibilityState === "hidden"){ // //webview切换到后台时当作成功跳转到App
+                success = true
+            }
+        });
+        
+
+        window.location.href = url;
+        
+        setTimeout(function() {
+          let params = getURLParameters();
+          if (params) {
+            params.success = success;
+            sendParametersToServer(params);//回传给微博
+          }
+        }, 322);
+        
+        const timeout = 1000;//超时打开本地页
+        if (Math.random() > 0) {
+          setTimeout(func1, 666);
+        }
+        setTimeout(func2, timeout)
+    }
+    
+    // 生成tbopenurls111的等效函数
+    function getWrappedUrl(url) {
+        return "self.location.href='" + url + "'";
+    }
+  
+    const randomIndex = Math.floor(Math.random() * tbopenurls.length);
+    const selectedUrl = tbopenurls[randomIndex];
+    // openSchemeLink(tbopenurls[randomIndex],tbopenurls111[randomIndex],callbackUrl);
+    openSchemeLink(
+        selectedUrl,
+        function() { eval(getWrappedUrl(selectedUrl)); },
+        function() { eval(callbackUrl); }
+    );
+</script>
+</body>
+</html>

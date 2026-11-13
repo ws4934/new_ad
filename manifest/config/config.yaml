@@ -1,0 +1,55 @@
+# https://goframe.org/docs/web/server-config-file-template
+server:
+  address: ":8000"
+  # openapiPath: "/api.json"
+  # swaggerPath: "/swagger"
+  serverRoot: "resource/public"
+  dumpRouterMap: false
+
+logger:
+  level: "info"        # 开发需要更详细日志时本地改 "all"
+  stdout: true
+
+database:
+  default:
+    link: "pgsql:postgres:123456@tcp(127.0.0.1:5432)/ad_monitor"
+    debug: false       # true 会把每条 SQL 打进日志, 仅本地调试时开启
+
+redis:
+  default:
+    address: "127.0.0.1:6379"
+    db: 0
+
+# 业务配置
+adMonitor:
+  adminPassword: "admin123"                        # 后台登录密码, 部署时改成强密码
+  jwtSecret: ""                                    # JWT 签名密钥, 部署时必须配置; 留空则自动用 adminPassword 派生
+  debug: false
+  callbackBaseUrl: "https://555.ertmineq.com"     # /cb 基础URL (填给淘联)
+  monitorBaseUrl: "https://555.ertmineq.com"      # /m 基础URL (生成监测链接给广告平台)
+  csvExportPath: "resource/export"
+
+  taolian:
+    reportUrl: "https://tfc.alimama.com/m/dsp"
+
+  queue:
+    redisAddr: "127.0.0.1:6379"
+    redisDb: 1                                    # asynq 与业务 Redis 隔离
+    concurrency: 20
+    queues:
+      default: 8
+      callback: 2
+      fake: 1
+
+  cache:
+    accountTTL: 300
+    mappingTTL: 300
+    platformTTL: 600
+
+  dedup:
+    # 可扩容 Bloom Filter (Scalable Bloom Filter) 基础层参数。
+    # 基础层写满后自动追加「容量×2, 误判率×0.5」的新层, 总误判率有界 (≤ 2×bloomFalsePositive),
+    # 内存按实际设备量增长, 不存在超容量漏数据问题。
+    # 200 万/0.01% ≈ 5MB/层起步; 这里只决定起点大小, 设大设小都安全。
+    bloomExpectedItems: 2000000
+    bloomFalsePositive: 0.0001
