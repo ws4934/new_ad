@@ -1,5 +1,5 @@
 import { ref, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=4'
+import { api } from '../api.js?v=5'
 
 const CATS = { 1: '超级红包', 2: '福利购', 4: '福利直降' }
 const emptyForm = () => ({ id: 0, name: '', appKey: '34070427', appSecret: '', activityCategory: 1, intervalSec: 30, notifyEmails: '', enabled: true })
@@ -132,7 +132,7 @@ export default {
         <div class="card-body p-0">
           <div class="px-5 pt-4 pb-1">
             <h2 class="font-semibold">查询配置</h2>
-            <p class="text-xs text-base-content/50 mt-0.5">每条配置按自身间隔查询淘宝接口；同一 AppKey 可分别添加超级红包 / 福利购 / 福利直降</p>
+            <p class="text-xs text-base-content/50 mt-0.5">同一 AppKey 可分别添加超级红包 / 福利购 / 福利直降</p>
           </div>
           <div class="overflow-x-auto">
             <table class="table">

@@ -1,6 +1,6 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=4'
-import TrendChart from '../components/TrendChart.js'
+import { api } from '../api.js?v=5'
+import TrendChart from '../components/TrendChart.js?v=5'
 
 // 日期转 YYYY-MM-DD
 function fmtDate(d) {

@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=4'
+import { api } from '../api.js?v=5'
 
 export default {
   props: ['id'],
