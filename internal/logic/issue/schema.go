@@ -11,6 +11,8 @@ const (
 	TableMonitor = "issue_monitor"
 	TableLog     = "issue_monitor_log"
 	TableSetting = "app_setting"
+	TableRptDay  = "issue_send_report_day"
+	TableRptPid  = "issue_send_report_pid"
 )
 
 // schemaSQL 启动时执行, 兼容已有部署 (init.sql 只在 PG 首次初始化时运行)。
@@ -45,6 +47,24 @@ CREATE TABLE IF NOT EXISTS issue_monitor_log (
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_issue_monitor_log_mid ON issue_monitor_log(monitor_id, id DESC);
+CREATE TABLE IF NOT EXISTS issue_send_report_day (
+    app_key    VARCHAR(64) NOT NULL,
+    biz_date   CHAR(8)     NOT NULL,
+    category   SMALLINT    NOT NULL,
+    total_fund BIGINT      NOT NULL DEFAULT 0,
+    total_use  BIGINT      NOT NULL DEFAULT 0,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (app_key, category, biz_date)
+);
+CREATE TABLE IF NOT EXISTS issue_send_report_pid (
+    app_key  VARCHAR(64) NOT NULL,
+    biz_date CHAR(8)     NOT NULL,
+    category SMALLINT    NOT NULL,
+    pid      VARCHAR(128) NOT NULL,
+    fund_num BIGINT      NOT NULL DEFAULT 0,
+    use_num  BIGINT      NOT NULL DEFAULT 0,
+    PRIMARY KEY (app_key, category, biz_date, pid)
+);
 CREATE TABLE IF NOT EXISTS app_setting (
     key        VARCHAR(64) PRIMARY KEY,
     value      JSONB NOT NULL DEFAULT '{}',

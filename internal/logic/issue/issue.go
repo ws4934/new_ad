@@ -386,7 +386,7 @@ func Tick(ctx context.Context) {
 			g.Log().Warningf(ctx, "issue: check monitor=%d: %v", m.Id, err)
 		}
 	}
-	refreshTodayReports(list)
+	refreshReports(ctx, list)
 	_, _ = g.Model(TableLog).Ctx(ctx).
 		WhereLT("created_at", gtime.Now().AddDate(0, 0, -logKeepDays)).Delete()
 }

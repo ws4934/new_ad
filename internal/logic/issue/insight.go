@@ -71,12 +71,11 @@ func fmtCST(t time.Time) string { return t.In(cst).Format(timeLayout) }
 
 func computeInsight(ctx context.Context, m *Monitor, now time.Time) *Insight {
 	ins := &Insight{}
-	if e := cachedReport(m.AppKey, TodayCST(), m.ActivityCategory); e != nil {
-		if e.err != nil {
-			ins.ReportError = e.err.Error()
-		} else {
-			ins.TodayFund, ins.TodayUse = &e.rep.TotalFund, &e.rep.TotalUse
-		}
+	if day, err := todayTotals(ctx, m.AppKey, m.ActivityCategory); err == nil && day != nil {
+		ins.TodayFund, ins.TodayUse = &day.TotalFund, &day.TotalUse
+	}
+	if v, ok := reportErrs.Load(reportKey(m.AppKey, TodayCST(), m.ActivityCategory)); ok {
+		ins.ReportError = v.(reportErr).err.Error()
 	}
 
 	y, mo, d := now.In(cst).Date()
