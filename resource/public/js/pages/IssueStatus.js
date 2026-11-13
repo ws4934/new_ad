@@ -1,6 +1,6 @@
 import { ref, computed, inject, onMounted, onUnmounted } from 'vue'
-import { api } from '../api.js?v=9'
-import TrendChart from '../components/TrendChart.js?v=9'
+import { api } from '../api.js?v=10'
+import TrendChart from '../components/TrendChart.js?v=10'
 
 const CATS = { 1: '超级红包', 2: '福利购', 4: '福利直降' }
 
@@ -125,15 +125,16 @@ export default {
     const state = (v) => STATE[v == null ? 'null' : v]
     // 卡片主指标: 三种状态统一为 标签 / 数值 / 补充说明 三行, 保证卡片结构一致
     const metric = (m) => {
+      // 接口没返回数量时显示 "—", 说明行只放接口自带的 extra_msg
       if (m.canIssue === false) return {
-        label: '还需发放红包达标', value: m.manualClaim2Go, empty: '未返回数量',
-        note: m.extraMsg || (m.manualClaim2Go == null ? '数量较多或账号未参与该活动时，淘宝不返回数量' : '达标后自动切换为直发'),
+        label: '还需发放红包达标', value: m.manualClaim2Go,
+        note: m.extraMsg || (m.manualClaim2Go == null ? '' : '达标后自动切换为直发'),
       }
       if (m.canIssue === true) return {
-        label: '剩余可直发红包', value: m.autoPayoutCnt, empty: '充足',
-        note: m.manualClaim2Go == null ? '距下轮直发目标：淘宝未返回数量' : `距下轮直发目标还需 ${m.manualClaim2Go} 个`,
+        label: '剩余可直发红包', value: m.autoPayoutCnt,
+        note: m.manualClaim2Go == null ? '' : `距下轮直发目标还需 ${m.manualClaim2Go} 个`,
       }
-      return { label: '暂无数据', value: null, empty: '—', note: m.lastError ? '查询失败，见下方错误' : '等待首次查询' }
+      return { label: '暂无数据', value: null, note: m.lastError ? '查询失败，见下方错误' : '等待首次查询' }
     }
     const count = (c) => c ? list.value.filter(m => m.activityCategory === c).length : list.value.length
     const num = (v) => v == null ? '—' : v
@@ -216,9 +217,9 @@ export default {
                     <span class="text-4xl font-bold tabular-nums leading-none" :class="state(m.canIssue).num">{{ metric(m).value }}</span>
                     <span class="text-sm text-base-content/60">个</span>
                   </template>
-                  <span v-else class="text-2xl font-semibold leading-9" :class="state(m.canIssue).num">{{ metric(m).empty }}</span>
+                  <span v-else class="text-4xl font-bold leading-none text-base-content/30">—</span>
                 </div>
-                <div class="text-xs text-base-content/60 mt-2 truncate" :title="metric(m).note">{{ metric(m).note }}</div>
+                <div class="text-xs text-base-content/60 mt-2 truncate" :title="metric(m).note">{{ metric(m).note || '\u00a0' }}</div>
               </div>
 
               <div class="grid grid-cols-3 gap-2">
@@ -283,7 +284,7 @@ export default {
             <p v-else-if="!chart.labels.length" class="text-sm text-base-content/50 py-8 text-center">该时段暂无记录</p>
             <template v-else>
               <TrendChart :labels="chart.labels" :series="chart.series" :band="chart.band" :titles="chart.titles" :notes="chart.notes"/>
-              <p v-if="chart.empty" class="text-xs text-base-content/50 text-center">该时段接口未返回数值（数量较多、未参与该活动或尚无记录）</p>
+              <p v-if="chart.empty" class="text-xs text-base-content/50 text-center">该时段接口未返回数值</p>
               <div class="flex gap-4 justify-center text-[11px] text-base-content/50">
                 <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>可直塞</span>
                 <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span>不可直塞</span>
@@ -360,7 +361,7 @@ export default {
                   <tr v-if="!logs.length"><td colspan="5" class="text-center text-base-content/40">暂无记录</td></tr>
                 </tbody>
               </table>
-              <p class="text-xs text-base-content/40 mt-2">"—" 表示接口未返回数值（数量较多、未参与该活动或不适用）</p>
+              <p class="text-xs text-base-content/40 mt-2">"—" 表示接口未返回数值</p>
             </div>
           </template>
         </template>

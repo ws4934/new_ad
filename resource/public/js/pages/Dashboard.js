@@ -1,5 +1,5 @@
 import { ref, onMounted, onUnmounted } from 'vue'
-import { api } from '../api.js?v=9'
+import { api } from '../api.js?v=10'
 
 export default {
   setup() {

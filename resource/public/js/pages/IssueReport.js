@@ -1,6 +1,6 @@
 import { ref, computed, inject, watch, onMounted } from 'vue'
-import { api } from '../api.js?v=9'
-import TrendChart from '../components/TrendChart.js?v=9'
+import { api } from '../api.js?v=10'
+import TrendChart from '../components/TrendChart.js?v=10'
 
 const CATS = { 1: '超级红包', 2: '福利购', 3: '签到红包', 4: '福利直降', 5: '幸运赢免单', 6: '超级金币' }
 // 北京时间 n 天前 (YYYY-MM-DD)
