@@ -13,7 +13,29 @@ func New() *Controller { return &Controller{} }
 
 func (c *Controller) List(ctx context.Context, req *v1.ListReq) (*v1.ListRes, error) {
 	list, err := issue.List(ctx)
-	return &v1.ListRes{List: list}, err
+	if err != nil {
+		return nil, err
+	}
+	issue.AttachInsights(ctx, list)
+	return &v1.ListRes{List: list}, nil
+}
+
+func (c *Controller) Stats(ctx context.Context, req *v1.StatsReq) (*v1.StatsRes, error) {
+	series, rounds, err := issue.Stats(ctx, req.Id, req.Hours)
+	return &v1.StatsRes{Series: series, Rounds: rounds}, err
+}
+
+func (c *Controller) Report(ctx context.Context, req *v1.ReportReq) (*v1.ReportRes, error) {
+	rep, err := issue.ReportFor(ctx, req.AppKey, req.Date, req.Category)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.ReportRes{Report: rep}, nil
+}
+
+func (c *Controller) ReportTrend(ctx context.Context, req *v1.ReportTrendReq) (*v1.ReportTrendRes, error) {
+	list, err := issue.ReportTrend(ctx, req.AppKey, req.Category, req.Days)
+	return &v1.ReportTrendRes{List: list}, err
 }
 
 func (c *Controller) Create(ctx context.Context, req *v1.CreateReq) (*v1.CreateRes, error) {

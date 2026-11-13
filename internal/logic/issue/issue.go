@@ -44,6 +44,7 @@ type Monitor struct {
 	CheckedAt        *gtime.Time `json:"checkedAt"        orm:"checked_at"`
 	ChangedAt        *gtime.Time `json:"changedAt"        orm:"changed_at"`
 	CreatedAt        *gtime.Time `json:"createdAt"        orm:"created_at"`
+	Insight          *Insight    `json:"insight"          orm:"-"`
 }
 
 // LogItem 数值/状态变化记录。
@@ -385,6 +386,7 @@ func Tick(ctx context.Context) {
 			g.Log().Warningf(ctx, "issue: check monitor=%d: %v", m.Id, err)
 		}
 	}
+	refreshTodayReports(list)
 	_, _ = g.Model(TableLog).Ctx(ctx).
 		WhereLT("created_at", gtime.Now().AddDate(0, 0, -logKeepDays)).Delete()
 }

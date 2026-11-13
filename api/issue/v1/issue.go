@@ -94,3 +94,31 @@ type SmtpTestReq struct {
 	To     string `json:"to" v:"required|email"`
 }
 type SmtpTestRes struct{}
+
+type StatsReq struct {
+	g.Meta `path:"/api/v2/issue-monitors/{id}/stats" tags:"Issue" method:"get" summary:"趋势与状态周期"`
+	Id     int `json:"id"    v:"required|min:1"`
+	Hours  int `json:"hours" d:"24" v:"between:1,168"`
+}
+type StatsRes struct {
+	Series []issue.SeriesPoint `json:"series"`
+	Rounds []issue.Round       `json:"rounds"`
+}
+
+type ReportReq struct {
+	g.Meta   `path:"/api/v2/issue-report" tags:"Issue" method:"get" summary:"红包发放个数 (pid 维度)"`
+	AppKey   string `json:"appKey"   v:"required"`
+	Date     string `json:"date"     v:"date-format:Ymd#日期格式应为 YYYYMMDD"`
+	Category int    `json:"category" d:"1" v:"between:1,6"`
+}
+type ReportRes struct{ *issue.Report }
+
+type ReportTrendReq struct {
+	g.Meta   `path:"/api/v2/issue-report/trend" tags:"Issue" method:"get" summary:"红包发放个数近 N 天趋势"`
+	AppKey   string `json:"appKey"   v:"required"`
+	Category int    `json:"category" d:"1" v:"between:1,6"`
+	Days     int    `json:"days"     d:"7" v:"between:1,31"`
+}
+type ReportTrendRes struct {
+	List []issue.TrendPoint `json:"list"`
+}
