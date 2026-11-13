@@ -70,58 +70,61 @@ export default {
   },
   template: `
     <div class="space-y-4">
-      <h1 class="text-2xl font-bold flex items-center gap-2">
-        <i data-lucide="refresh-cw" class="w-6 h-6"></i> 系统更新
-      </h1>
+      <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold flex items-center gap-2">
+          <i data-lucide="refresh-cw" class="w-6 h-6"></i> 系统更新
+        </h1>
+        <div v-if="st" class="flex gap-2">
+          <a v-if="st.releaseUrl" :href="st.releaseUrl" target="_blank" rel="noopener" class="btn btn-sm btn-ghost">
+            <i data-lucide="external-link" class="w-4 h-4"></i> 发布页
+          </a>
+          <button class="btn btn-sm" :disabled="checking || active" @click="check">
+            <span v-if="checking" class="loading loading-spinner loading-xs"></span>
+            <i v-else data-lucide="search" class="w-4 h-4"></i> 检查更新
+          </button>
+          <button v-if="st.updateAvailable && st.supported" class="btn btn-sm btn-primary" :disabled="active" @click="confirmShow=true">
+            <i data-lucide="download" class="w-4 h-4"></i> 立即更新
+          </button>
+        </div>
+      </div>
 
       <div v-if="!st" class="flex justify-center py-20"><span class="loading loading-spinner loading-lg"></span></div>
 
       <template v-else>
-        <div v-if="!st.supported" class="alert alert-info">当前环境不支持在线更新：{{ st.unsupportedReason || '未知原因' }}</div>
-
-        <div v-if="active" class="alert alert-warning">
+        <div v-if="active" class="alert alert-warning text-sm">
           <span class="loading loading-spinner loading-sm"></span>
           <span>{{ ACTIVE[st.phase] }}… {{ st.message }}<template v-if="offline">（服务重启中，等待恢复）</template></span>
         </div>
-        <div v-if="st.phase === 'failed'" class="alert alert-error">更新失败：{{ st.error || st.message }}</div>
+        <div v-if="st.phase === 'failed'" class="alert alert-error text-sm">更新失败：{{ st.error || st.message }}</div>
 
         <div class="card bg-base-100 shadow">
-          <div class="card-body">
+          <div class="card-body p-5 gap-4">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div class="stat bg-base-200 rounded-box">
-                <div class="stat-title">当前版本</div>
-                <div class="stat-value text-2xl">{{ st.currentVersion || '—' }}</div>
+              <div class="rounded-box bg-base-200/70 px-4 py-3">
+                <div class="text-xs text-base-content/60">当前版本</div>
+                <div class="text-2xl font-bold tabular-nums mt-1">{{ st.currentVersion || '—' }}</div>
               </div>
-              <div class="stat bg-base-200 rounded-box">
-                <div class="stat-title">最新版本</div>
-                <div class="stat-value text-2xl" :class="{'text-primary': st.updateAvailable}">{{ st.latestVersion || '—' }}</div>
-                <div class="stat-desc" v-if="st.publishedAt">发布于 {{ st.publishedAt }}</div>
+              <div class="rounded-box bg-base-200/70 px-4 py-3">
+                <div class="text-xs text-base-content/60">最新版本</div>
+                <div class="text-2xl font-bold tabular-nums mt-1" :class="{'text-primary': st.updateAvailable}">{{ st.latestVersion || '—' }}</div>
+                <div class="text-xs text-base-content/50 mt-1" v-if="st.publishedAt">发布于 {{ st.publishedAt.slice(0, 10) }}</div>
               </div>
-              <div class="stat bg-base-200 rounded-box">
-                <div class="stat-title">上次检查</div>
-                <div class="stat-value text-base">{{ st.checkedAt || '从未检查' }}</div>
-                <div class="stat-desc">
-                  <span v-if="st.updateAvailable" class="badge badge-primary badge-sm">有可用更新</span>
-                  <span v-else-if="st.checkedAt">已是最新</span>
+              <div class="rounded-box bg-base-200/70 px-4 py-3">
+                <div class="text-xs text-base-content/60">上次检查</div>
+                <div class="text-base font-semibold mt-1.5">{{ st.checkedAt || '从未检查' }}</div>
+                <div class="text-xs mt-1" :class="st.updateAvailable ? 'text-primary' : 'text-base-content/50'">
+                  {{ st.updateAvailable ? '有可用更新' : st.checkedAt ? '已是最新' : '' }}
                 </div>
               </div>
             </div>
 
-            <div class="flex flex-wrap gap-2 mt-2">
-              <button class="btn btn-sm" :disabled="checking || active" @click="check">
-                <i data-lucide="search" class="w-4 h-4"></i> {{ checking ? '检查中…' : '检查更新' }}
-              </button>
-              <button v-if="st.updateAvailable && st.supported" class="btn btn-sm btn-primary" :disabled="active" @click="confirmShow=true">
-                <i data-lucide="download" class="w-4 h-4"></i> 立即更新
-              </button>
-              <a v-if="st.releaseUrl" :href="st.releaseUrl" target="_blank" rel="noopener" class="btn btn-sm btn-ghost">
-                <i data-lucide="external-link" class="w-4 h-4"></i> 查看发布页
-              </a>
-            </div>
+            <p v-if="!st.supported" class="text-xs text-base-content/60 flex items-center gap-1.5">
+              <i data-lucide="info" class="w-3.5 h-3.5"></i> 当前环境不支持在线更新：{{ st.unsupportedReason || '未知原因' }}
+            </p>
 
-            <div v-if="st.releaseNotes" class="mt-2">
-              <h3 class="font-semibold mb-1">更新说明</h3>
-              <div class="bg-base-200 rounded-box p-3 text-sm whitespace-pre-wrap break-words max-h-96 overflow-auto">{{ st.releaseNotes }}</div>
+            <div v-if="st.releaseNotes" class="pt-4 border-t border-base-200">
+              <h2 class="font-semibold mb-2">更新说明</h2>
+              <div class="text-sm whitespace-pre-wrap break-words max-h-96 overflow-auto text-base-content/80">{{ st.releaseNotes }}</div>
             </div>
           </div>
         </div>

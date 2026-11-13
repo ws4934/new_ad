@@ -119,30 +119,33 @@ export default {
   },
   template: `
     <div class="space-y-4">
-      <h1 class="text-2xl font-bold flex items-center gap-2">
-        <i data-lucide="sliders-horizontal" class="w-6 h-6"></i> 直发配置
-      </h1>
+      <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold flex items-center gap-2">
+          <i data-lucide="sliders-horizontal" class="w-6 h-6"></i> 直发配置
+        </h1>
+        <button class="btn btn-primary btn-sm" @click="openCreate()" title="自动带入上次新增的配置">
+          <i data-lucide="plus" class="w-4 h-4"></i> 新增配置
+        </button>
+      </div>
 
       <div class="card bg-base-100 shadow">
-        <div class="card-body">
-          <div class="flex items-center justify-between">
-            <h2 class="card-title">查询配置</h2>
-            <button class="btn btn-primary btn-sm" @click="openCreate()" title="自动带入上次新增的配置">
-              <i data-lucide="plus" class="w-4 h-4"></i> 新增
-            </button>
+        <div class="card-body p-0">
+          <div class="px-5 pt-4 pb-1">
+            <h2 class="font-semibold">查询配置</h2>
+            <p class="text-xs text-base-content/50 mt-0.5">每条配置按自身间隔查询淘宝接口；同一 AppKey 可分别添加超级红包 / 福利购 / 福利直降</p>
           </div>
           <div class="overflow-x-auto">
             <table class="table">
-              <thead><tr><th>名称</th><th>活动</th><th>AppKey</th><th>间隔</th><th>通知邮箱</th><th>启用</th><th>操作</th></tr></thead>
+              <thead><tr><th>名称</th><th>活动</th><th>AppKey</th><th>间隔</th><th>通知邮箱</th><th>状态</th><th class="text-right">操作</th></tr></thead>
               <tbody>
                 <tr v-for="m in list" :key="m.id">
-                  <td>{{ m.name }}</td>
+                  <td class="font-medium">{{ m.name }}</td>
                   <td>{{ CATS[m.activityCategory] || m.activityCategory }}</td>
                   <td><code>{{ m.appKey }}</code></td>
-                  <td>{{ m.intervalSec }} 秒</td>
-                  <td class="max-w-xs truncate" :title="m.notifyEmails">{{ m.notifyEmails || '—' }}</td>
-                  <td><span class="badge badge-sm" :class="m.enabled ? 'badge-primary' : 'badge-ghost'">{{ m.enabled ? '启用' : '停用' }}</span></td>
-                  <td class="whitespace-nowrap">
+                  <td class="tabular-nums">{{ m.intervalSec }} 秒</td>
+                  <td class="max-w-xs truncate text-base-content/70" :title="m.notifyEmails">{{ m.notifyEmails || '—' }}</td>
+                  <td><span :class="m.enabled ? 'badge badge-primary badge-sm' : 'badge badge-ghost badge-sm'">{{ m.enabled ? '启用' : '停用' }}</span></td>
+                  <td class="whitespace-nowrap text-right">
                     <button class="btn btn-xs btn-ghost" @click="openEdit(m)">
                       <i data-lucide="edit" class="w-3.5 h-3.5"></i> 编辑
                     </button>
@@ -154,7 +157,7 @@ export default {
                     </button>
                   </td>
                 </tr>
-                <tr v-if="!list.length"><td colspan="7" class="text-center text-gray-400">暂无配置</td></tr>
+                <tr v-if="!list.length"><td colspan="7" class="text-center text-base-content/40">暂无配置，点击右上角「新增配置」</td></tr>
               </tbody>
             </table>
           </div>
@@ -162,44 +165,46 @@ export default {
       </div>
 
       <div class="card bg-base-100 shadow">
-        <div class="card-body">
-          <h2 class="card-title">邮件通知 (SMTP)</h2>
-          <p class="text-xs text-gray-500">直发状态翻转时向各配置的通知邮箱发送提醒。</p>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl">
-            <label class="form-control">
-              <span class="label-text mb-1">SMTP 服务器</span>
+        <div class="card-body p-5 gap-4">
+          <div>
+            <h2 class="font-semibold">邮件通知 (SMTP)</h2>
+            <p class="text-xs text-base-content/50 mt-0.5">直发状态切换时，向各配置填写的通知邮箱发送提醒</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-x-4 gap-y-3">
+            <label class="form-control xl:col-span-2">
+              <span class="label-text text-xs mb-1">SMTP 服务器</span>
               <input v-model="smtp.host" class="input input-bordered input-sm" placeholder="smtp.qq.com">
             </label>
-            <label class="form-control">
-              <span class="label-text mb-1">端口 <span class="text-gray-400 text-xs">465=SSL，587/25=STARTTLS</span></span>
+            <label class="form-control xl:col-span-2">
+              <span class="label-text text-xs mb-1">端口 <span class="text-base-content/40">465 = SSL，587 / 25 = STARTTLS</span></span>
               <input v-model.number="smtp.port" type="number" class="input input-bordered input-sm">
             </label>
             <label class="form-control">
-              <span class="label-text mb-1">用户名</span>
+              <span class="label-text text-xs mb-1">用户名</span>
               <input v-model="smtp.username" class="input input-bordered input-sm" autocomplete="off">
             </label>
             <label class="form-control">
-              <span class="label-text mb-1">密码 / 授权码</span>
+              <span class="label-text text-xs mb-1">密码 / 授权码</span>
               <input v-model="smtp.password" type="password" class="input input-bordered input-sm" autocomplete="new-password"
                 :placeholder="smtp.passwordSet ? '已设置，留空不修改' : ''">
             </label>
             <label class="form-control md:col-span-2">
-              <span class="label-text mb-1">发件人（可选）</span>
-              <input v-model="smtp.from" class="input input-bordered input-sm" placeholder="直发提醒 <a@b.com>，留空则使用用户名">
+              <span class="label-text text-xs mb-1">发件人 <span class="text-base-content/40">可选，留空使用用户名</span></span>
+              <input v-model="smtp.from" class="input input-bordered input-sm" placeholder="直发提醒 <a@b.com>">
             </label>
           </div>
-          <div>
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-base-200">
+            <div class="flex flex-wrap items-center gap-2">
+              <input v-model="testTo" class="input input-bordered input-sm w-60" placeholder="测试收件人邮箱">
+              <button class="btn btn-sm btn-ghost" :disabled="testing" @click="sendTest">
+                <span v-if="testing" class="loading loading-spinner loading-xs"></span>
+                <i v-else data-lucide="send" class="w-4 h-4"></i> 发送测试邮件
+              </button>
+              <span class="text-xs text-base-content/40">使用已保存的配置发送</span>
+            </div>
             <button class="btn btn-primary btn-sm" :disabled="smtpSaving" @click="saveSmtp">
-              <i data-lucide="save" class="w-4 h-4"></i> {{ smtpSaving ? '保存中…' : '保存' }}
+              <i data-lucide="save" class="w-4 h-4"></i> {{ smtpSaving ? '保存中…' : '保存邮件配置' }}
             </button>
-          </div>
-          <div class="divider my-1"></div>
-          <div class="flex flex-wrap items-center gap-2">
-            <input v-model="testTo" class="input input-bordered input-sm w-64" placeholder="测试收件人邮箱">
-            <button class="btn btn-sm" :disabled="testing" @click="sendTest">
-              <i data-lucide="send" class="w-4 h-4"></i> {{ testing ? '发送中…' : '发送测试邮件' }}
-            </button>
-            <span class="text-xs text-gray-400">使用已保存的配置发送，修改后请先保存</span>
           </div>
         </div>
       </div>
@@ -208,21 +213,21 @@ export default {
         :confirm-disabled="saving" @close="showForm=false" @confirm="save">
         <div class="space-y-3">
           <label class="form-control">
-            <span class="label-text mb-1">名称</span>
+            <span class="label-text text-xs mb-1">名称</span>
             <input v-model="form.name" class="input input-bordered input-sm">
           </label>
           <label class="form-control">
-            <span class="label-text mb-1">AppKey</span>
+            <span class="label-text text-xs mb-1">AppKey</span>
             <input v-model="form.appKey" class="input input-bordered input-sm">
           </label>
           <label class="form-control">
-            <span class="label-text mb-1">AppSecret</span>
+            <span class="label-text text-xs mb-1">AppSecret</span>
             <input v-model="form.appSecret" type="password" class="input input-bordered input-sm" autocomplete="new-password"
               :placeholder="form.id ? '留空不修改' : (hasSecret(form.appKey) ? '留空则复用该 AppKey 已保存的 Secret' : '必填')">
           </label>
           <div class="grid grid-cols-2 gap-3">
             <label class="form-control">
-              <span class="label-text mb-1">活动类型</span>
+              <span class="label-text text-xs mb-1">活动类型</span>
               <select v-model.number="form.activityCategory" class="select select-bordered select-sm">
                 <option :value="1">超级红包</option>
                 <option :value="2">福利购</option>
@@ -230,12 +235,12 @@ export default {
               </select>
             </label>
             <label class="form-control">
-              <span class="label-text mb-1">查询间隔（秒）</span>
+              <span class="label-text text-xs mb-1">查询间隔（秒）</span>
               <input v-model.number="form.intervalSec" type="number" min="10" class="input input-bordered input-sm">
             </label>
           </div>
           <label class="form-control">
-            <span class="label-text mb-1">通知邮箱（逗号或换行分隔）</span>
+            <span class="label-text text-xs mb-1">通知邮箱（逗号或换行分隔）</span>
             <textarea v-model="form.notifyEmails" rows="3" class="textarea textarea-bordered textarea-sm"></textarea>
           </label>
           <label class="label cursor-pointer justify-start gap-3">
