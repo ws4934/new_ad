@@ -26,14 +26,25 @@ func TestNormalizeEmails(t *testing.T) {
 func TestBuildMail(t *testing.T) {
 	f := false
 	m := &Monitor{Name: "主号", AppKey: "34070427", ActivityCategory: 1, CanIssue: &f}
-	subj, body := buildMail(m, &Result{CanIssue: true, AutoPayoutCnt: i64(10)})
-	if subj != "[直发提醒] 主号: 不可直塞 → 可直塞" {
+	subj, body := buildMail(m, &Result{CanIssue: true, AutoPayoutCnt: i64(10), ExtraMsg: "当前红包剩余10个"})
+	if subj != "[直发提醒] 主号: 手动领取 → 直发中" {
 		t.Fatalf("subject %q", subj)
 	}
-	for _, want := range []string{"剩余可直发红包: 10 个", "距下轮直发目标还需发放: 超过展示门槛"} {
+	for _, want := range []string{"剩余直发红包: 10 个", "距下轮直发目标还需发放: 已超展示门槛（存在指定直发）"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("body missing %q:\n%s", want, body)
 		}
+	}
+	if strings.Contains(body, "当前红包剩余") {
+		t.Fatalf("extra_msg should not be shown:\n%s", body)
+	}
+	tr := true
+	m.CanIssue = &tr
+	if _, body = buildMail(m, &Result{CanIssue: false, ManualClaim2Go: i64(5)}); !strings.Contains(body, "还需手抽红包 (完成后切换回直发): 5 个") {
+		t.Fatalf("manual body:\n%s", body)
+	}
+	if _, body = buildMail(m, &Result{CanIssue: false}); !strings.Contains(body, "还需手抽红包 (完成后切换回直发): 未达展示门槛") {
+		t.Fatalf("manual none body:\n%s", body)
 	}
 }
 
@@ -133,7 +144,7 @@ func TestMonitorFlow(t *testing.T) {
 		}
 		_ = json.NewDecoder(resp.Body).Decode(&out)
 		resp.Body.Close()
-		if len(out.Messages) != 1 || out.Messages[0].Subject != "[直发提醒] 主号: 不可直塞 → 可直塞" {
+		if len(out.Messages) != 1 || out.Messages[0].Subject != "[直发提醒] 主号: 手动领取 → 直发中" {
 			t.Fatalf("mailpit messages: %+v", out.Messages)
 		}
 	}

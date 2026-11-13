@@ -1,6 +1,6 @@
 import { ref, computed, inject, onMounted, onUnmounted } from 'vue'
-import { api } from '../api.js?v=10'
-import TrendChart from '../components/TrendChart.js?v=10'
+import { api } from '../api.js?v=11'
+import TrendChart from '../components/TrendChart.js?v=11'
 
 const CATS = { 1: '超级红包', 2: '福利购', 4: '福利直降' }
 
@@ -94,12 +94,12 @@ export default {
       return {
         labels: s.map(p => p.t),
         series: [
-          { name: '还需发放', color: '#d97706', points: s.map(p => p.manual) },
-          { name: '剩余可直发', color: '#059669', points: s.map(p => p.auto) },
+          { name: '还需手抽', color: '#d97706', points: s.map(p => p.manual) },
+          { name: '剩余直发', color: '#059669', points: s.map(p => p.auto) },
         ],
         band: s.map(p => p.canIssue === true ? '#10b981' : p.canIssue === false ? '#f59e0b' : 'oklch(var(--b3))'),
         titles: s.map(p => p.full.slice(0, 16)),
-        notes: s.map(p => '状态：' + (p.canIssue === true ? '可直塞' : p.canIssue === false ? '不可直塞' : '未知')),
+        notes: s.map(p => '状态：' + (p.canIssue === true ? '直发中' : p.canIssue === false ? '手动领取' : '未知')),
         empty: s.every(p => p.manual == null && p.auto == null),
       }
     })
@@ -118,21 +118,21 @@ export default {
       return isNaN(sec) ? '' : dur(sec)
     }
     const STATE = {
-      true: { text: '可直塞', pill: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', num: 'text-emerald-700' },
-      false: { text: '不可直塞', pill: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500', num: 'text-amber-700' },
+      true: { text: '直发中', pill: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', num: 'text-emerald-700' },
+      false: { text: '手动领取', pill: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500', num: 'text-amber-700' },
       null: { text: '未查询', pill: 'bg-base-200 text-base-content/60', dot: 'bg-base-content/30', num: 'text-base-content/40' },
     }
     const state = (v) => STATE[v == null ? 'null' : v]
     // 卡片主指标: 三种状态统一为 标签 / 数值 / 补充说明 三行, 保证卡片结构一致
     const metric = (m) => {
-      // 接口没返回数量时显示 "—", 说明行只放接口自带的 extra_msg
+      // 按接口说明: 没返回数量显示 "—"; extra_msg 不展示
       if (m.canIssue === false) return {
-        label: '还需发放红包达标', value: m.manualClaim2Go,
-        note: m.extraMsg || (m.manualClaim2Go == null ? '' : '达标后自动切换为直发'),
+        label: '还需手抽红包', value: m.manualClaim2Go,
+        note: m.manualClaim2Go == null ? '' : '手抽完成后切换回直发',
       }
       if (m.canIssue === true) return {
-        label: '剩余可直发红包', value: m.autoPayoutCnt,
-        note: m.manualClaim2Go == null ? '' : `距下轮直发目标还需 ${m.manualClaim2Go} 个`,
+        label: '剩余直发红包', value: m.autoPayoutCnt,
+        note: m.manualClaim2Go == null ? '存在指定直发，距下轮目标已超展示门槛' : `距下轮直发目标还需发放 ${m.manualClaim2Go} 个`,
       }
       return { label: '暂无数据', value: null, note: m.lastError ? '查询失败，见下方错误' : '等待首次查询' }
     }
@@ -145,7 +145,7 @@ export default {
       const r = ins(m).ratePerHour
       return r == null ? '—' : (r < 10 ? r.toFixed(1) : Math.round(r)) + ' 个/时'
     }
-    const etaLabel = (m) => m.canIssue === false ? '预计达标' : m.canIssue === true ? '预计用完' : '预计'
+    const etaLabel = (m) => m.canIssue === false ? '预计切回直发' : m.canIssue === true ? '预计用完' : '预计'
     const bjToday = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)
     const eta = (m) => {
       const t = ins(m).etaAt
@@ -286,8 +286,8 @@ export default {
               <TrendChart :labels="chart.labels" :series="chart.series" :band="chart.band" :titles="chart.titles" :notes="chart.notes"/>
               <p v-if="chart.empty" class="text-xs text-base-content/50 text-center">该时段接口未返回数值</p>
               <div class="flex gap-4 justify-center text-[11px] text-base-content/50">
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>可直塞</span>
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span>不可直塞</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>直发中</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span>手动领取</span>
                 <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-base-300"></span>未知</span>
               </div>
             </template>
@@ -344,7 +344,7 @@ export default {
             <div v-if="logsLoading" class="flex justify-center py-8"><span class="loading loading-spinner"></span></div>
             <div v-else class="overflow-x-auto max-h-[60vh]">
               <table class="table table-sm table-pin-rows">
-                <thead><tr><th>时间</th><th>状态</th><th class="text-right">剩余可直发</th><th class="text-right">还需发放</th><th>邮件</th></tr></thead>
+                <thead><tr><th>时间</th><th>状态</th><th class="text-right">剩余直发</th><th class="text-right">还需手抽</th><th>邮件</th></tr></thead>
                 <tbody>
                   <tr v-for="l in logs" :key="l.id" :class="{'bg-base-200/60': l.statusChanged}">
                     <td class="whitespace-nowrap tabular-nums">{{ l.createdAt }}</td>

@@ -335,12 +335,12 @@ func notifyStatusChange(ctx context.Context, m *Monitor, res *Result) string {
 	return "已发送"
 }
 
-// StatusText 状态文案, 对应接口 can_issue: 当前媒体 (或所在媒体组) 是否可直塞。
+// StatusText 状态文案, 对应接口 can_issue: 媒体单账号 (或所在媒体组) 当前为红包直发 / 手动领取状态。
 func StatusText(canIssue bool) string {
 	if canIssue {
-		return "可直塞"
+		return "直发中"
 	}
-	return "不可直塞"
+	return "手动领取"
 }
 
 func countText(v *int64, none string) string {
@@ -362,14 +362,12 @@ func buildMail(m *Monitor, res *Result) (string, string) {
 	fmt.Fprintf(&b, "配置: %s (AppKey %s, %s)\n", m.Name, m.AppKey, ActivityNames[m.ActivityCategory])
 	fmt.Fprintf(&b, "状态: %s → %s\n", from, to)
 	fmt.Fprintf(&b, "时间: %s\n\n", gtime.Now().String())
+	// none 的含义按接口说明: 直发时 manual 为空 = 存在指定直发且已超展示门槛; 其余为空 = 未达展示门槛。extra_msg 不展示
 	if res.CanIssue {
-		fmt.Fprintf(&b, "剩余可直发红包: %s\n", countText(res.AutoPayoutCnt, "超过展示门槛"))
-		fmt.Fprintf(&b, "距下轮直发目标还需发放: %s\n", countText(res.ManualClaim2Go, "超过展示门槛"))
+		fmt.Fprintf(&b, "剩余直发红包: %s\n", countText(res.AutoPayoutCnt, "未达展示门槛"))
+		fmt.Fprintf(&b, "距下轮直发目标还需发放: %s\n", countText(res.ManualClaim2Go, "已超展示门槛（存在指定直发）"))
 	} else {
-		fmt.Fprintf(&b, "还需手抽红包达标: %s\n", countText(res.ManualClaim2Go, "超过展示门槛"))
-	}
-	if res.ExtraMsg != "" {
-		fmt.Fprintf(&b, "提示: %s\n", res.ExtraMsg)
+		fmt.Fprintf(&b, "还需手抽红包 (完成后切换回直发): %s\n", countText(res.ManualClaim2Go, "未达展示门槛"))
 	}
 	return subject, b.String()
 }

@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted, onUnmounted } from 'vue'
-import { api } from '../api.js?v=10'
+import { api } from '../api.js?v=11'
 
 const ACTIVE = { downloading: '正在下载', verifying: '正在校验', restarting: '正在重启' }
 

@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { api, setToken } from '../api.js?v=10'
+import { api, setToken } from '../api.js?v=11'
 import { useRouter } from 'vue-router'
 
 export default {
