@@ -3,6 +3,8 @@ import { api } from '../api.js?v=4'
 
 const CATS = { 1: '超级红包', 2: '福利购', 4: '福利直降' }
 const emptyForm = () => ({ id: 0, name: '', appKey: '34070427', appSecret: '', activityCategory: 1, intervalSec: 30, notifyEmails: '', enabled: true })
+const LAST_KEY = 'issue_last_form' // 上次新增的配置 (不含 AppSecret)
+const loadLast = () => { try { return JSON.parse(localStorage.getItem(LAST_KEY)) } catch { return null } }
 
 export default {
   setup() {
@@ -30,7 +32,23 @@ export default {
       catch (e) { toast.show('加载邮件配置失败: ' + e.message, 'error') }
     }
 
-    const openCreate = () => { form.value = emptyForm(); showForm.value = true }
+    // 基于模板 (上次新增 / 某行) 预填, 活动类型切到该 AppKey 尚未配置的下一个, 名称里的活动名同步替换
+    const openCreate = (tpl) => {
+      const base = { ...emptyForm(), ...(tpl || loadLast() || {}), id: 0, appSecret: '' }
+      const used = new Set(list.value.filter(m => m.appKey === base.appKey).map(m => m.activityCategory))
+      const next = [1, 2, 4].find(c => !used.has(c))
+      if (next && next !== base.activityCategory) {
+        const oldLabel = CATS[base.activityCategory]
+        base.name = base.name.includes(oldLabel) ? base.name.replace(oldLabel, CATS[next]) : base.name
+        base.activityCategory = next
+      }
+      form.value = {
+        id: 0, name: base.name, appKey: base.appKey, appSecret: '', activityCategory: base.activityCategory,
+        intervalSec: base.intervalSec, notifyEmails: base.notifyEmails || '', enabled: base.enabled,
+      }
+      showForm.value = true
+    }
+    const hasSecret = (appKey) => list.value.some(m => m.appKey === appKey.trim())
     const openEdit = (m) => {
       const { id, name, appKey, activityCategory, intervalSec, notifyEmails, enabled } = m
       form.value = { id, name, appKey, appSecret: '', activityCategory, intervalSec, notifyEmails: notifyEmails || '', enabled }
@@ -40,7 +58,7 @@ export default {
     const save = async () => {
       const f = form.value
       if (!f.name.trim() || !f.appKey.trim()) return toast.show('名称和 AppKey 必填', 'error')
-      if (!f.id && !f.appSecret) return toast.show('新增时 AppSecret 必填', 'error')
+      if (!f.id && !f.appSecret && !hasSecret(f.appKey)) return toast.show('新增时 AppSecret 必填', 'error')
       if (!(f.intervalSec >= 10)) return toast.show('查询间隔不能小于 10 秒', 'error')
       const body = {
         name: f.name.trim(), appKey: f.appKey.trim(), appSecret: f.appSecret,
@@ -50,7 +68,11 @@ export default {
       saving.value = true
       try {
         if (f.id) await api.issueUpdate(f.id, body)
-        else await api.issueCreate(body)
+        else {
+          await api.issueCreate(body)
+          const { appSecret, ...last } = body
+          localStorage.setItem(LAST_KEY, JSON.stringify(last))
+        }
         showForm.value = false
         toast.show('保存成功', 'success')
         await refresh()
@@ -92,7 +114,7 @@ export default {
     }
 
     onMounted(() => { refresh(); loadSmtp() })
-    return { CATS, list, showForm, form, saving, openCreate, openEdit, save, deleteTarget, deleting, remove,
+    return { CATS, list, showForm, form, saving, openCreate, openEdit, save, hasSecret, deleteTarget, deleting, remove,
       smtp, smtpSaving, saveSmtp, testTo, testing, sendTest }
   },
   template: `
@@ -105,7 +127,7 @@ export default {
         <div class="card-body">
           <div class="flex items-center justify-between">
             <h2 class="card-title">查询配置</h2>
-            <button class="btn btn-primary btn-sm" @click="openCreate">
+            <button class="btn btn-primary btn-sm" @click="openCreate()" title="自动带入上次新增的配置">
               <i data-lucide="plus" class="w-4 h-4"></i> 新增
             </button>
           </div>
@@ -123,6 +145,9 @@ export default {
                   <td class="whitespace-nowrap">
                     <button class="btn btn-xs btn-ghost" @click="openEdit(m)">
                       <i data-lucide="edit" class="w-3.5 h-3.5"></i> 编辑
+                    </button>
+                    <button class="btn btn-xs btn-ghost" @click="openCreate(m)" title="以此配置为模板新增其他活动类型">
+                      <i data-lucide="copy" class="w-3.5 h-3.5"></i> 复制
                     </button>
                     <button class="btn btn-xs btn-ghost text-error" @click="deleteTarget=m" :disabled="deleting">
                       <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 删除
@@ -193,7 +218,7 @@ export default {
           <label class="form-control">
             <span class="label-text mb-1">AppSecret</span>
             <input v-model="form.appSecret" type="password" class="input input-bordered input-sm" autocomplete="new-password"
-              :placeholder="form.id ? '留空不修改' : '必填'">
+              :placeholder="form.id ? '留空不修改' : (hasSecret(form.appKey) ? '留空则复用该 AppKey 已保存的 Secret' : '必填')">
           </label>
           <div class="grid grid-cols-2 gap-3">
             <label class="form-control">

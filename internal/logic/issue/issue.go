@@ -133,6 +133,15 @@ func get(ctx context.Context, id int) (*Monitor, error) {
 
 // Create 新建配置并立即查询一次 (查询失败不影响创建)。
 func Create(ctx context.Context, in Input) (int, error) {
+	// AppSecret 留空: 复用同 AppKey 已保存的密钥, 方便同一账号快速添加不同活动类型
+	if strings.TrimSpace(in.AppSecret) == "" && strings.TrimSpace(in.AppKey) != "" {
+		v, err := g.Model(TableMonitor).Ctx(ctx).Where("app_key", strings.TrimSpace(in.AppKey)).
+			OrderDesc("id").Value("app_secret")
+		if err != nil {
+			return 0, err
+		}
+		in.AppSecret = v.String()
+	}
 	if err := validate(&in, true); err != nil {
 		return 0, err
 	}

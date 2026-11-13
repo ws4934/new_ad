@@ -150,6 +150,19 @@ func TestMonitorFlow(t *testing.T) {
 		t.Fatalf("update result %+v", m)
 	}
 
+	// AppSecret 留空 → 复用同 AppKey 的密钥; 无同 AppKey 记录 → 报错
+	id2, err := Create(ctx, Input{Name: "福利直降", AppKey: "other", ActivityCategory: 4, Enabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m2, _ := get(ctx, id2); m2.AppSecret != "s" {
+		t.Fatalf("secret not reused: %q", m2.AppSecret)
+	}
+	if _, err := Create(ctx, Input{Name: "x", AppKey: "nobody", ActivityCategory: 1}); err == nil {
+		t.Fatal("create without secret for unknown appKey should fail")
+	}
+	_ = Delete(ctx, id2)
+
 	if err := Delete(ctx, id); err != nil {
 		t.Fatal(err)
 	}
