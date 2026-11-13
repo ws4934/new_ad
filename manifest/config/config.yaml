@@ -28,6 +28,10 @@ adMonitor:
   monitorBaseUrl: "https://555.ertmineq.com"      # /m 基础URL (生成监测链接给广告平台)
   csvExportPath: "resource/export"
 
+  update:
+    # 在线更新: 国内服务器直连 GitHub 失败时填代理前缀, 如 "https://gh-proxy.com/" (代理可看到下载内容, 只填信任的)
+    githubProxy: ""
+
   taolian:
     reportUrl: "https://tfc.alimama.com/m/dsp"
 

@@ -21,19 +21,31 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/gogf/gf/v2/frame/g"
 )
 
 // Version 由 CI 通过 -ldflags "-X ad-monitor/internal/logic/updater.Version=vX.Y.Z" 注入。
 var Version = "dev"
 
-// apiBase 仅供端到端测试通过 -ldflags -X 指向模拟服务。
-var apiBase = "https://api.github.com"
+// apiBase / githubBase 仅供端到端测试通过 -ldflags -X 指向模拟服务。
+var (
+	apiBase    = "https://api.github.com"
+	githubBase = "https://github.com"
+)
+
+// proxyPrefix 配置 adMonitor.update.githubProxy (如 https://gh-proxy.com/), 国内服务器直连 GitHub 失败时使用。
+// 注意: 代理方能看到并可篡改下载内容 (校验文件也经同一代理), 只填信任的代理。
+func proxyPrefix(ctx context.Context) string {
+	return strings.TrimSpace(g.Cfg().MustGet(ctx, "adMonitor.update.githubProxy").String())
+}
 
 const (
 	Repo       = "ws4934/new_ad"
@@ -168,7 +180,51 @@ func Check(ctx context.Context, force bool) (Status, error) {
 	return statusLocked(), nil
 }
 
+// fetchLatest 未配置代理: 先走 API (含更新说明), 失败 (限流/网络) 再走 latest/download/SHA256SUMS;
+// 配置了代理: 只走代理 + SHA256SUMS (代理一般不支持 api.github.com)。
 func fetchLatest(ctx context.Context) (*release, error) {
+	if p := proxyPrefix(ctx); p != "" {
+		return fetchLatestSums(ctx, p)
+	}
+	rel, err := fetchLatestAPI(ctx)
+	if err == nil {
+		return rel, nil
+	}
+	if rel2, err2 := fetchLatestSums(ctx, ""); err2 == nil {
+		return rel2, nil
+	}
+	return nil, err
+}
+
+var sumsTagRe = regexp.MustCompile(binaryName + `_(v\d+\.\d+\.\d+(?:\.\d+)?)_linux_amd64\.tar\.gz`)
+
+// releaseFromSums 由 SHA256SUMS 内容推出版本号, 资产地址按 GitHub 固定格式拼出。
+func releaseFromSums(sums string) (*release, error) {
+	m := sumsTagRe.FindStringSubmatch(sums)
+	if m == nil {
+		return nil, errors.New("SHA256SUMS 中没有可识别的安装包")
+	}
+	tag := m[1]
+	dl := githubBase + "/" + Repo + "/releases/download/" + tag + "/"
+	rel := &release{TagName: tag, HtmlUrl: githubBase + "/" + Repo + "/releases/tag/" + tag}
+	for _, name := range []string{m[0], "SHA256SUMS"} {
+		rel.Assets = append(rel.Assets, struct {
+			Name string `json:"name"`
+			URL  string `json:"browser_download_url"`
+		}{name, dl + name})
+	}
+	return rel, nil
+}
+
+func fetchLatestSums(ctx context.Context, proxy string) (*release, error) {
+	data, err := download(proxy+githubBase+"/"+Repo+"/releases/latest/download/SHA256SUMS", 1<<20)
+	if err != nil {
+		return nil, fmt.Errorf("获取最新版本失败: %w", err)
+	}
+	return releaseFromSums(string(data))
+}
+
+func fetchLatestAPI(ctx context.Context) (*release, error) {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet,
 		apiBase+"/repos/"+Repo+"/releases/latest", nil)
 	req.Header.Set("Accept", "application/vnd.github+json")
@@ -259,6 +315,8 @@ func install(rel *release) (string, error) {
 	if archiveURL == "" || sumsURL == "" {
 		return "", fmt.Errorf("Release %s 缺少 %s 或 SHA256SUMS", rel.TagName, archiveName)
 	}
+	p := proxyPrefix(context.Background())
+	archiveURL, sumsURL = p+archiveURL, p+sumsURL
 
 	sums, err := download(sumsURL, 1<<20)
 	if err != nil {

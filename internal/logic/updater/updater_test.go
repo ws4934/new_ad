@@ -62,3 +62,18 @@ func TestExtract(t *testing.T) {
 		t.Fatalf("data=%q mode=%v", data, st.Mode())
 	}
 }
+
+func TestReleaseFromSums(t *testing.T) {
+	rel, err := releaseFromSums("8a0e...  ad-monitor_v0.1.2_linux_amd64.tar.gz\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rel.TagName != "v0.1.2" || len(rel.Assets) != 2 ||
+		rel.Assets[0].URL != "https://github.com/ws4934/new_ad/releases/download/v0.1.2/ad-monitor_v0.1.2_linux_amd64.tar.gz" ||
+		rel.Assets[1].Name != "SHA256SUMS" {
+		t.Fatalf("%+v", rel)
+	}
+	if _, err := releaseFromSums("garbage"); err == nil {
+		t.Fatal("want error")
+	}
+}

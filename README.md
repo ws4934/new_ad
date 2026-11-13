@@ -7,6 +7,14 @@
 curl -fsSL https://raw.githubusercontent.com/ws4934/new_ad/main/install.sh | sudo bash
 ```
 
+国内服务器连不上 GitHub（如 `curl: (35) TCP connection reset by peer`）时，通过代理下载脚本：
+
+```bash
+curl -fsSL https://gh-proxy.com/https://raw.githubusercontent.com/ws4934/new_ad/main/install.sh | sudo bash
+```
+
+脚本会自动检测 GitHub 代理，镜像拉取失败时自动改用国内镜像源，并把代理写入配置供后台在线更新使用。
+
 - 默认安装到 `/opt/ad-monitor`，端口 `8090`，安装完成后会打印后台密码。
 - 可选环境变量：`INSTALL_DIR`、`APP_PORT`、`BASE_URL`（对外域名）、`VERSION`（如 `v1.0.0`，默认最新版）。
 
