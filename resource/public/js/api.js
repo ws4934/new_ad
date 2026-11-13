@@ -76,4 +76,22 @@ export const api = {
   exportFiles: (query) => request('/api/v2/stats/export-files', { query }),
   exportDownloadURL: (filename) => `/api/v2/stats/export-download?filename=${encodeURIComponent(filename)}`,
   exportDelete: (filename) => request('/api/v2/stats/export-delete', { method: 'POST', body: { filename } }),
+
+  // 直发查询
+  issueList: () => request('/api/v2/issue-monitors'),
+  issueCreate: (body) => request('/api/v2/issue-monitors', { method: 'POST', body }),
+  issueUpdate: (id, body) => request(`/api/v2/issue-monitors/${id}`, { method: 'PUT', body }),
+  issueDelete: (id) => request(`/api/v2/issue-monitors/${id}`, { method: 'DELETE' }),
+  issueCheck: (id) => request(`/api/v2/issue-monitors/${id}/check`, { method: 'POST' }),
+  issueLogs: (id, limit = 50) => request(`/api/v2/issue-monitors/${id}/logs`, { query: { limit } }),
+
+  // 邮件
+  smtpGet: () => request('/api/v2/settings/smtp'),
+  smtpSave: (body) => request('/api/v2/settings/smtp', { method: 'PUT', body }),
+  smtpTest: (to) => request('/api/v2/settings/smtp/test', { method: 'POST', body: { to } }),
+
+  // 系统更新
+  updateStatus: () => request('/api/v2/system/update'),
+  updateCheck: () => request('/api/v2/system/update/check', { method: 'POST' }),
+  updateStart: () => request('/api/v2/system/update/start', { method: 'POST' }),
 }

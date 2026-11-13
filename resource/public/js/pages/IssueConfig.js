@@ -1,0 +1,229 @@
+import { ref, inject, onMounted } from 'vue'
+import { api } from '../api.js?v=4'
+
+const CATS = { 1: '超级红包', 2: '福利购', 4: '福利直降' }
+const emptyForm = () => ({ id: 0, name: '', appKey: '34070427', appSecret: '', activityCategory: 1, intervalSec: 30, notifyEmails: '', enabled: true })
+
+export default {
+  setup() {
+    const toast = inject('toast')
+    const list = ref([])
+    const showForm = ref(false)
+    const form = ref(emptyForm())
+    const saving = ref(false)
+    const deleteTarget = ref(null)
+    const deleting = ref(false)
+    const smtp = ref({ host: '', port: 465, username: '', password: '', from: '', passwordSet: false })
+    const smtpSaving = ref(false)
+    const testTo = ref('')
+    const testing = ref(false)
+
+    const refresh = async () => {
+      try { list.value = (await api.issueList()).list || [] }
+      catch (e) { toast.show('加载失败: ' + e.message, 'error') }
+    }
+    const loadSmtp = async () => {
+      try {
+        const r = await api.smtpGet()
+        smtp.value = { host: '', username: '', from: '', ...r, port: r.port || 465, password: '' }
+      }
+      catch (e) { toast.show('加载邮件配置失败: ' + e.message, 'error') }
+    }
+
+    const openCreate = () => { form.value = emptyForm(); showForm.value = true }
+    const openEdit = (m) => {
+      const { id, name, appKey, activityCategory, intervalSec, notifyEmails, enabled } = m
+      form.value = { id, name, appKey, appSecret: '', activityCategory, intervalSec, notifyEmails: notifyEmails || '', enabled }
+      showForm.value = true
+    }
+
+    const save = async () => {
+      const f = form.value
+      if (!f.name.trim() || !f.appKey.trim()) return toast.show('名称和 AppKey 必填', 'error')
+      if (!f.id && !f.appSecret) return toast.show('新增时 AppSecret 必填', 'error')
+      if (!(f.intervalSec >= 10)) return toast.show('查询间隔不能小于 10 秒', 'error')
+      const body = {
+        name: f.name.trim(), appKey: f.appKey.trim(), appSecret: f.appSecret,
+        activityCategory: f.activityCategory, intervalSec: f.intervalSec, enabled: f.enabled,
+        notifyEmails: f.notifyEmails.split(/[\s,，;；]+/).filter(Boolean).join(','),
+      }
+      saving.value = true
+      try {
+        if (f.id) await api.issueUpdate(f.id, body)
+        else await api.issueCreate(body)
+        showForm.value = false
+        toast.show('保存成功', 'success')
+        await refresh()
+      } catch (e) { toast.show('保存失败: ' + e.message, 'error') }
+      saving.value = false
+    }
+
+    const remove = async () => {
+      if (!deleteTarget.value || deleting.value) return
+      deleting.value = true
+      try {
+        await api.issueDelete(deleteTarget.value.id)
+        deleteTarget.value = null
+        toast.show('删除成功', 'success')
+        await refresh()
+      } catch (e) { toast.show('删除失败: ' + e.message, 'error') }
+      deleting.value = false
+    }
+
+    const saveSmtp = async () => {
+      const { host, port, username, password, from } = smtp.value
+      smtpSaving.value = true
+      try {
+        await api.smtpSave({ host: host.trim(), port: Number(port) || 0, username: username.trim(), password, from: from.trim() })
+        toast.show('邮件配置已保存', 'success')
+        await loadSmtp()
+      } catch (e) { toast.show('保存失败: ' + e.message, 'error') }
+      smtpSaving.value = false
+    }
+
+    const sendTest = async () => {
+      if (!testTo.value.trim()) return toast.show('请填写收件人', 'error')
+      testing.value = true
+      try {
+        await api.smtpTest(testTo.value.trim())
+        toast.show('测试邮件已发送', 'success')
+      } catch (e) { toast.show('发送失败: ' + e.message, 'error') }
+      testing.value = false
+    }
+
+    onMounted(() => { refresh(); loadSmtp() })
+    return { CATS, list, showForm, form, saving, openCreate, openEdit, save, deleteTarget, deleting, remove,
+      smtp, smtpSaving, saveSmtp, testTo, testing, sendTest }
+  },
+  template: `
+    <div class="space-y-4">
+      <h1 class="text-2xl font-bold flex items-center gap-2">
+        <i data-lucide="sliders-horizontal" class="w-6 h-6"></i> 直发配置
+      </h1>
+
+      <div class="card bg-base-100 shadow">
+        <div class="card-body">
+          <div class="flex items-center justify-between">
+            <h2 class="card-title">查询配置</h2>
+            <button class="btn btn-primary btn-sm" @click="openCreate">
+              <i data-lucide="plus" class="w-4 h-4"></i> 新增
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="table">
+              <thead><tr><th>名称</th><th>活动</th><th>AppKey</th><th>间隔</th><th>通知邮箱</th><th>启用</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr v-for="m in list" :key="m.id">
+                  <td>{{ m.name }}</td>
+                  <td>{{ CATS[m.activityCategory] || m.activityCategory }}</td>
+                  <td><code>{{ m.appKey }}</code></td>
+                  <td>{{ m.intervalSec }} 秒</td>
+                  <td class="max-w-xs truncate" :title="m.notifyEmails">{{ m.notifyEmails || '—' }}</td>
+                  <td><span class="badge badge-sm" :class="m.enabled ? 'badge-primary' : 'badge-ghost'">{{ m.enabled ? '启用' : '停用' }}</span></td>
+                  <td class="whitespace-nowrap">
+                    <button class="btn btn-xs btn-ghost" @click="openEdit(m)">
+                      <i data-lucide="edit" class="w-3.5 h-3.5"></i> 编辑
+                    </button>
+                    <button class="btn btn-xs btn-ghost text-error" @click="deleteTarget=m" :disabled="deleting">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 删除
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="!list.length"><td colspan="7" class="text-center text-gray-400">暂无配置</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card bg-base-100 shadow">
+        <div class="card-body">
+          <h2 class="card-title">邮件通知 (SMTP)</h2>
+          <p class="text-xs text-gray-500">直发状态翻转时向各配置的通知邮箱发送提醒。</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl">
+            <label class="form-control">
+              <span class="label-text mb-1">SMTP 服务器</span>
+              <input v-model="smtp.host" class="input input-bordered input-sm" placeholder="smtp.qq.com">
+            </label>
+            <label class="form-control">
+              <span class="label-text mb-1">端口 <span class="text-gray-400 text-xs">465=SSL，587/25=STARTTLS</span></span>
+              <input v-model.number="smtp.port" type="number" class="input input-bordered input-sm">
+            </label>
+            <label class="form-control">
+              <span class="label-text mb-1">用户名</span>
+              <input v-model="smtp.username" class="input input-bordered input-sm" autocomplete="off">
+            </label>
+            <label class="form-control">
+              <span class="label-text mb-1">密码 / 授权码</span>
+              <input v-model="smtp.password" type="password" class="input input-bordered input-sm" autocomplete="new-password"
+                :placeholder="smtp.passwordSet ? '已设置，留空不修改' : ''">
+            </label>
+            <label class="form-control md:col-span-2">
+              <span class="label-text mb-1">发件人（可选）</span>
+              <input v-model="smtp.from" class="input input-bordered input-sm" placeholder="直发提醒 <a@b.com>，留空则使用用户名">
+            </label>
+          </div>
+          <div>
+            <button class="btn btn-primary btn-sm" :disabled="smtpSaving" @click="saveSmtp">
+              <i data-lucide="save" class="w-4 h-4"></i> {{ smtpSaving ? '保存中…' : '保存' }}
+            </button>
+          </div>
+          <div class="divider my-1"></div>
+          <div class="flex flex-wrap items-center gap-2">
+            <input v-model="testTo" class="input input-bordered input-sm w-64" placeholder="测试收件人邮箱">
+            <button class="btn btn-sm" :disabled="testing" @click="sendTest">
+              <i data-lucide="send" class="w-4 h-4"></i> {{ testing ? '发送中…' : '发送测试邮件' }}
+            </button>
+            <span class="text-xs text-gray-400">使用已保存的配置发送，修改后请先保存</span>
+          </div>
+        </div>
+      </div>
+
+      <Modal :show="showForm" :title="form.id ? '编辑查询配置' : '新增查询配置'" :confirm-text="saving ? '保存中…' : '保存'"
+        :confirm-disabled="saving" @close="showForm=false" @confirm="save">
+        <div class="space-y-3">
+          <label class="form-control">
+            <span class="label-text mb-1">名称</span>
+            <input v-model="form.name" class="input input-bordered input-sm">
+          </label>
+          <label class="form-control">
+            <span class="label-text mb-1">AppKey</span>
+            <input v-model="form.appKey" class="input input-bordered input-sm">
+          </label>
+          <label class="form-control">
+            <span class="label-text mb-1">AppSecret</span>
+            <input v-model="form.appSecret" type="password" class="input input-bordered input-sm" autocomplete="new-password"
+              :placeholder="form.id ? '留空不修改' : '必填'">
+          </label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="form-control">
+              <span class="label-text mb-1">活动类型</span>
+              <select v-model.number="form.activityCategory" class="select select-bordered select-sm">
+                <option :value="1">超级红包</option>
+                <option :value="2">福利购</option>
+                <option :value="4">福利直降</option>
+              </select>
+            </label>
+            <label class="form-control">
+              <span class="label-text mb-1">查询间隔（秒）</span>
+              <input v-model.number="form.intervalSec" type="number" min="10" class="input input-bordered input-sm">
+            </label>
+          </div>
+          <label class="form-control">
+            <span class="label-text mb-1">通知邮箱（逗号或换行分隔）</span>
+            <textarea v-model="form.notifyEmails" rows="3" class="textarea textarea-bordered textarea-sm"></textarea>
+          </label>
+          <label class="label cursor-pointer justify-start gap-3">
+            <input type="checkbox" class="toggle toggle-primary toggle-sm" v-model="form.enabled">
+            <span class="label-text">启用</span>
+          </label>
+        </div>
+      </Modal>
+
+      <Modal :show="!!deleteTarget" title="删除查询配置" :confirm-text="deleting ? '删除中…' : '确认删除'" :confirm-disabled="deleting"
+        @close="!deleting && (deleteTarget=null)" @confirm="remove">
+        <p>确认删除「{{ deleteTarget?.name }}」？此操作不可恢复。</p>
+      </Modal>
+    </div>
+  `,
+}

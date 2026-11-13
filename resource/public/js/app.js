@@ -1,6 +1,6 @@
 import { createApp, computed, onMounted, onUpdated, nextTick } from 'vue'
-import { router } from './router.js'
-import { clearToken } from './api.js'
+import { router } from './router.js?v=4'
+import { clearToken } from './api.js?v=4'
 import Modal from './components/Modal.js'
 import MultiSelect from './components/MultiSelect.js'
 import { useToast, ToastView } from './components/Toast.js'
@@ -39,11 +39,20 @@ const App = {
           <li><router-link to="/accounts" class="flex items-center gap-2">
             <i data-lucide="users" class="w-4 h-4"></i> 账户管理
           </router-link></li>
+          <li><router-link to="/issue" class="flex items-center gap-2">
+            <i data-lucide="gift" class="w-4 h-4"></i> 直发查询
+          </router-link></li>
+          <li><router-link to="/issue-config" class="flex items-center gap-2">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> 直发配置
+          </router-link></li>
           <li><router-link to="/stats" class="flex items-center gap-2">
             <i data-lucide="line-chart" class="w-4 h-4"></i> 统计报表
           </router-link></li>
           <li><router-link to="/export" class="flex items-center gap-2">
             <i data-lucide="file-down" class="w-4 h-4"></i> CSV 导出
+          </router-link></li>
+          <li><router-link to="/system" class="flex items-center gap-2">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i> 系统更新
           </router-link></li>
         </ul>
         <div class="p-2 border-t">

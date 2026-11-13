@@ -2,19 +2,25 @@ package cmd
 
 import (
 	"context"
+	"net/http"
 
 	authctl "ad-monitor/internal/controller/auth"
 	"ad-monitor/internal/controller/account"
 	"ad-monitor/internal/controller/callback"
 	"ad-monitor/internal/controller/mapping"
 	"ad-monitor/internal/controller/monitor"
+	issuectl "ad-monitor/internal/controller/issue"
 	"ad-monitor/internal/controller/platform"
+	systemctl "ad-monitor/internal/controller/system"
 	statsctl "ad-monitor/internal/controller/stats"
 	"ad-monitor/internal/logic/auth"
 	"ad-monitor/internal/logic/cache"
 	"ad-monitor/internal/logic/dedup"
+	"ad-monitor/internal/logic/issue"
 	"ad-monitor/internal/logic/queue"
 	"ad-monitor/internal/logic/stats"
+	"ad-monitor/internal/logic/updater"
+	"ad-monitor/resource/public"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
@@ -30,6 +36,12 @@ var (
 		Func: func(ctx context.Context, parser *gcmd.Parser) (err error) {
 			// 0. 安全前置校验: jwtSecret/adminPassword 均未配置时拒绝启动
 			auth.EnsureSecretConfigured()
+
+			g.Log().Infof(ctx, "ad-monitor %s", updater.Version)
+
+			// 0.1 直发监控建表 (幂等) + 每 5 秒扫描到期配置 (各配置按自身间隔查询)
+			issue.EnsureSchema(ctx)
+			_, _ = gcron.AddSingleton(ctx, "*/5 * * * * *", issue.Tick, "issue-monitor")
 
 			// 1. 缓存预热
 			cache.WarmupAll(ctx)
@@ -67,6 +79,11 @@ var (
 			s.Plugin(&dedup.ShutdownPlugin{Dedup: dedupSvc, CSV: csvWriter})
 			s.Plugin(&stats.ShutdownPlugin{})
 
+			// 前端静态文件 (编译进二进制)
+			static := ghttp.WrapH(http.FileServer(http.FS(public.FS)))
+			s.BindHandler("GET:/", static)
+			s.BindHandler("GET:/js/*", static)
+
 			// 外部接收路由 (无鉴权)
 			s.Group("/", func(group *ghttp.RouterGroup) {
 				group.Bind(monitor.New(dedupSvc))
@@ -87,10 +104,13 @@ var (
 				group.Bind(account.New())
 				group.Bind(mapping.New())
 				group.Bind(statsctl.New(csvWriter))
+				group.Bind(issuectl.New())
+				group.Bind(systemctl.New())
 			})
 
 			s.Run()
-			return nil
+			// 在线更新: 新二进制已就位时 exec 替换当前进程
+			return updater.RestartIfPending()
 		},
 	}
 )
