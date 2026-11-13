@@ -149,8 +149,11 @@ func computeInsight(ctx context.Context, m *Monitor, now time.Time) *Insight {
 			break
 		}
 		rate := float64(*v-*value) / span.Hours()
-		eta := fmtCST(now.Add(time.Duration(float64(*value) / rate * float64(time.Hour))))
-		ins.RatePerHour, ins.EtaAt = &rate, &eta
+		ins.RatePerHour = &rate
+		if hours := float64(*value) / rate; hours < 24*365 { // 过慢时不给预计时间, 也避免 Duration 溢出
+			eta := fmtCST(now.Add(time.Duration(hours * float64(time.Hour))))
+			ins.EtaAt = &eta
+		}
 		break
 	}
 	return ins

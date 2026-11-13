@@ -14,7 +14,7 @@
 #       本地构建用 --build (本地构建版本号为 dev, 不支持在线更新)。
 #
 # 在线更新: 后台「系统更新」页从 GitHub Release 下载新二进制, 替换 ./data/bin 里的程序并自动重启,
-#           重建容器不会丢失。拉取更新的镜像后, 若镜像版本更高会自动覆盖 ./data/bin 里的旧程序。
+#           重建容器不会丢失。镜像变化 (拉取新镜像 / 回退 APP_TAG / 本地重新构建) 时以镜像内程序为准覆盖 ./data/bin。
 #
 # 用法:
 #   # 1. 确认 manifest/config/config.yaml 的 host 已改为 postgres/redis

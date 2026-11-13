@@ -24,12 +24,13 @@ var cst, _ = time.LoadLocation("Asia/Shanghai")
 var ReportCategories = map[int]string{1: "超级红包", 2: "福利购", 3: "签到红包", 4: "福利直降", 5: "幸运赢免单", 6: "超级金币"}
 
 const (
-	reportPageSize = 100
-	reportTodayTTL = 5 * time.Minute // 今天: 5 分钟刷新
-	reportYdayTTL  = time.Hour       // 昨天: 数据仍可能补录, 1 小时刷新
-	reportErrTTL   = time.Minute     // 失败后 1 分钟内不重试
-	backfillDays   = 31              // 后台补齐最近 31 天
-	backfillPerRun = 2               // 每次 Tick 每个 (AppKey, 类型) 最多补 2 天, 避免集中打接口
+	reportPageSize  = 100
+	reportTodayTTL  = 5 * time.Minute  // 今天: 5 分钟刷新
+	reportYdayTTL   = time.Hour        // 昨天: 数据仍可能补录, 1 小时刷新
+	reportErrTTL    = time.Minute      // 今天失败后 1 分钟内不重试
+	reportOldErrTTL = 30 * time.Minute // 历史日期失败后 30 分钟内不重试, 避免持续报错时耗尽接口配额
+	backfillDays    = 31               // 后台补齐最近 31 天
+	backfillPerRun  = 2                // 每次 Tick 每个 (AppKey, 类型) 最多补 2 天, 避免集中打接口
 )
 
 type ReportRow struct {
@@ -67,6 +68,19 @@ func TodayCST() string { return time.Now().In(cst).Format("20060102") }
 
 func reportKey(appKey, date string, category int) string {
 	return fmt.Sprintf("%s|%s|%d", appKey, date, category)
+}
+
+// recentErr 该 key 最近失败过且仍在退避期内。
+func recentErr(key, date string, now time.Time) bool {
+	v, ok := reportErrs.Load(key)
+	if !ok {
+		return false
+	}
+	ttl := reportOldErrTTL
+	if date == TodayCST() {
+		ttl = reportErrTTL
+	}
+	return now.Sub(v.(reportErr).at) < ttl
 }
 
 // fresh 入库数据是否无需刷新。date 在两天后 0 点之后抓取的数据视为定稿, 永不再请求接口。
@@ -149,10 +163,11 @@ func getReport(ctx context.Context, appKey, secret, date string, category int, d
 		return loadReport(ctx, appKey, date, category, day)
 	}
 	key := reportKey(appKey, date, category)
-	if v, ok := reportErrs.Load(key); ok && now.Sub(v.(reportErr).at) < reportErrTTL {
+	if recentErr(key, date, now) {
 		if day != nil {
 			return loadReport(ctx, appKey, date, category, day)
 		}
+		v, _ := reportErrs.Load(key)
 		return nil, v.(reportErr).err
 	}
 	rep, err := fetchReport(appKey, secret, date, category)
@@ -276,6 +291,7 @@ func ReportTrend(ctx context.Context, appKey string, category, days int) ([]Tren
 		return nil, err
 	}
 	now := time.Now()
+	var lastErr error
 	out := make([]TrendPoint, 0, days)
 	for _, d := range dates {
 		if day := stored[d]; day != nil && fresh(d, day.FetchedAt, now) {
@@ -284,9 +300,13 @@ func ReportTrend(ctx context.Context, appKey string, category, days int) ([]Tren
 		}
 		rep, err := getReport(ctx, appKey, secret, d, category, stored[d])
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", d, err)
+			lastErr = fmt.Errorf("%s: %w", d, err) // 跳过失败日期, 返回部分数据
+			continue
 		}
 		out = append(out, TrendPoint{Date: d, Fund: rep.TotalFund, Use: rep.TotalUse})
+	}
+	if len(out) == 0 && lastErr != nil {
+		return nil, lastErr
 	}
 	return out, nil
 }
@@ -298,8 +318,13 @@ func todayTotals(ctx context.Context, appKey string, category int) (*dayRow, err
 	return days[today], err
 }
 
-// refreshReports 由 Tick 调用: 刷新今天的报表, 并逐步补齐最近 31 天未入库/未定稿的日期。
-func refreshReports(ctx context.Context, list []*Monitor) {
+// RefreshReports 定时任务 (与直发查询分开, 避免拖慢告警): 刷新今天的报表,
+// 并逐步补齐最近 31 天未入库/未定稿的日期; 某个 (AppKey, 类型) 本轮失败即停止补齐。
+func RefreshReports(ctx context.Context) {
+	list, err := List(ctx)
+	if err != nil {
+		return
+	}
 	seen := map[string]bool{}
 	dates := lastDays(backfillDays)
 	now := time.Now()
@@ -319,11 +344,13 @@ func refreshReports(ctx context.Context, list []*Monitor) {
 			if day := stored[d]; day != nil && fresh(d, day.FetchedAt, now) {
 				continue
 			}
-			if v, ok := reportErrs.Load(reportKey(m.AppKey, d, m.ActivityCategory)); ok && now.Sub(v.(reportErr).at) < reportErrTTL {
+			if recentErr(reportKey(m.AppKey, d, m.ActivityCategory), d, now) {
 				continue
 			}
-			_, _ = getReport(ctx, m.AppKey, m.AppSecret, d, m.ActivityCategory, stored[d])
 			fetched++
+			if _, err := getReport(ctx, m.AppKey, m.AppSecret, d, m.ActivityCategory, stored[d]); err != nil {
+				break
+			}
 		}
 	}
 }

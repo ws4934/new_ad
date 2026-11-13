@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS issue_monitor_log (
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_issue_monitor_log_mid ON issue_monitor_log(monitor_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_issue_monitor_log_mid_ct ON issue_monitor_log(monitor_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_issue_monitor_log_ct ON issue_monitor_log(created_at);
 CREATE TABLE IF NOT EXISTS issue_send_report_day (
     app_key    VARCHAR(64) NOT NULL,
     biz_date   CHAR(8)     NOT NULL,

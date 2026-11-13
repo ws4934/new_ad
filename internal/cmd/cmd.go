@@ -42,6 +42,8 @@ var (
 			// 0.1 直发监控建表 (幂等) + 每 5 秒扫描到期配置 (各配置按自身间隔查询)
 			issue.EnsureSchema(ctx)
 			_, _ = gcron.AddSingleton(ctx, "*/5 * * * * *", issue.Tick, "issue-monitor")
+			_, _ = gcron.AddSingleton(ctx, "*/30 * * * * *", issue.RefreshReports, "issue-report")
+			_, _ = gcron.AddSingleton(ctx, "0 7 * * * *", issue.PruneLogs, "issue-log-prune")
 
 			// 1. 缓存预热
 			cache.WarmupAll(ctx)
@@ -79,7 +81,8 @@ var (
 			s.Plugin(&dedup.ShutdownPlugin{Dedup: dedupSvc, CSV: csvWriter})
 			s.Plugin(&stats.ShutdownPlugin{})
 
-			// 前端静态文件 (编译进二进制)
+			// 前端静态文件 (编译进二进制); 关闭磁盘静态目录, 防止旧配置的 serverRoot 覆盖新版前端
+			s.SetFileServerEnabled(false)
 			static := ghttp.WrapH(http.FileServer(http.FS(public.FS)))
 			s.BindHandler("GET:/", static)
 			s.BindHandler("GET:/js/*", static)

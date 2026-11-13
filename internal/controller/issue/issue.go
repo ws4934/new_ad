@@ -52,8 +52,12 @@ func (c *Controller) Delete(ctx context.Context, req *v1.DeleteReq) (*v1.DeleteR
 }
 
 func (c *Controller) Check(ctx context.Context, req *v1.CheckReq) (*v1.CheckRes, error) {
-	m, err := issue.CheckNow(ctx, req.Id)
-	return &v1.CheckRes{Monitor: m}, err
+	m, err := issue.CheckNow(context.WithoutCancel(ctx), req.Id) // 客户端断开也要写完日志
+	if err != nil {
+		return nil, err
+	}
+	issue.AttachInsights(ctx, []*issue.Monitor{m})
+	return &v1.CheckRes{Monitor: m}, nil
 }
 
 func (c *Controller) Logs(ctx context.Context, req *v1.LogsReq) (*v1.LogsRes, error) {

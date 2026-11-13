@@ -367,7 +367,7 @@ func buildMail(m *Monitor, res *Result) (string, string) {
 	return subject, b.String()
 }
 
-// Tick 定时任务: 查询所有到期的启用配置, 并清理过期日志。
+// Tick 定时任务: 查询所有到期的启用配置。
 func Tick(ctx context.Context) {
 	list, err := List(ctx)
 	if err != nil {
@@ -386,7 +386,10 @@ func Tick(ctx context.Context) {
 			g.Log().Warningf(ctx, "issue: check monitor=%d: %v", m.Id, err)
 		}
 	}
-	refreshReports(ctx, list)
+}
+
+// PruneLogs 清理超过保留期的变化记录 (每小时一次)。
+func PruneLogs(ctx context.Context) {
 	_, _ = g.Model(TableLog).Ctx(ctx).
 		WhereLT("created_at", gtime.Now().AddDate(0, 0, -logKeepDays)).Delete()
 }

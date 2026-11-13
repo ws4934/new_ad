@@ -44,7 +44,7 @@ COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 COPY --from=builder /build/manifest /app/manifest
 
 # CSV 导出目录 (容器内通过 volume 挂载持久化)
-RUN chmod 755 /app/docker-entrypoint.sh && mkdir -p /app/resource/export /app/data/bin
+RUN chmod 755 /app/docker-entrypoint.sh && mkdir -p /app/resource/export /app/resource/public /app/data/bin
 
 EXPOSE 8000
 
