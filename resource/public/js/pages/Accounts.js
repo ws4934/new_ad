@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=8'
+import { api } from '../api.js?v=9'
 
 export default {
   setup() {

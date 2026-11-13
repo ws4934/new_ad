@@ -106,19 +106,10 @@ type StatsRes struct {
 }
 
 type ReportReq struct {
-	g.Meta   `path:"/api/v2/issue-report" tags:"Issue" method:"get" summary:"红包发放个数 (pid 维度)"`
+	g.Meta   `path:"/api/v2/issue-report" tags:"Issue" method:"get" summary:"红包发放个数 (日期范围, 含逐日趋势和推广位合计)"`
 	AppKey   string `json:"appKey"   v:"required"`
-	Date     string `json:"date"     v:"date-format:Ymd#日期格式应为 YYYYMMDD"`
+	From     string `json:"from"     v:"required|date-format:Ymd#请选择开始日期|日期格式应为 YYYYMMDD"`
+	To       string `json:"to"       v:"required|date-format:Ymd#请选择结束日期|日期格式应为 YYYYMMDD"`
 	Category int    `json:"category" d:"1" v:"between:1,6"`
 }
-type ReportRes struct{ *issue.Report }
-
-type ReportTrendReq struct {
-	g.Meta   `path:"/api/v2/issue-report/trend" tags:"Issue" method:"get" summary:"红包发放个数近 N 天趋势"`
-	AppKey   string `json:"appKey"   v:"required"`
-	Category int    `json:"category" d:"1" v:"between:1,6"`
-	Days     int    `json:"days"     d:"7" v:"between:1,31"`
-}
-type ReportTrendRes struct {
-	List []issue.TrendPoint `json:"list"`
-}
+type ReportRes struct{ *issue.RangeReport }

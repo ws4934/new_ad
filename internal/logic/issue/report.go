@@ -148,15 +148,6 @@ func saveReport(ctx context.Context, appKey string, rep *Report, at time.Time) e
 	})
 }
 
-// GetReport 优先读库; 未入库或需要刷新时请求接口并入库。接口失败时有旧数据则返回旧数据。
-func GetReport(ctx context.Context, appKey, secret, date string, category int) (*Report, error) {
-	days, err := loadDays(ctx, appKey, category, date, date)
-	if err != nil {
-		return nil, err
-	}
-	return getReport(ctx, appKey, secret, date, category, days[date])
-}
-
 func getReport(ctx context.Context, appKey, secret, date string, category int, day *dayRow) (*Report, error) {
 	now := time.Now()
 	if day != nil && fresh(date, day.FetchedAt, now) {
@@ -252,23 +243,24 @@ func secretOf(ctx context.Context, appKey string) (string, error) {
 	return v.String(), nil
 }
 
-// ReportFor 报表页: 按 AppKey 查某天的发放明细, date 为空表示今天。
-func ReportFor(ctx context.Context, appKey, date string, category int) (*Report, error) {
-	secret, err := secretOf(ctx, appKey)
-	if err != nil {
-		return nil, err
-	}
-	if date == "" {
-		date = TodayCST()
-	}
-	return GetReport(ctx, appKey, secret, date, category)
-}
-
 type TrendPoint struct {
 	Date string `json:"date"`
 	Fund int64  `json:"fund"`
 	Use  int64  `json:"use"`
 }
+
+// RangeReport 报表页: 日期范围内的合计、逐日趋势和推广位合计。
+type RangeReport struct {
+	From      string       `json:"from"`
+	To        string       `json:"to"`
+	TotalFund int64        `json:"totalFund"`
+	TotalUse  int64        `json:"totalUse"`
+	Trend     []TrendPoint `json:"trend"`
+	List      []ReportRow  `json:"list"`
+	Failed    []string     `json:"failed"` // 查询失败、未计入的日期
+}
+
+const maxRangeDays = 31
 
 func lastDays(days int) []string {
 	today := time.Now().In(cst)
@@ -279,36 +271,69 @@ func lastDays(days int) []string {
 	return out
 }
 
-// ReportTrend 最近 days 天 (含今天) 的发放/使用合计, 旧 → 新。已入库且无需刷新的日期直接读库。
-func ReportTrend(ctx context.Context, appKey string, category, days int) ([]TrendPoint, error) {
+// dateRange from..to (YYYYMMDD, 含两端), 结束日期超过今天按今天算。
+func dateRange(from, to string) ([]string, error) {
+	f, err1 := time.ParseInLocation("20060102", from, cst)
+	t, err2 := time.ParseInLocation("20060102", to, cst)
+	if err1 != nil || err2 != nil {
+		return nil, gerror.New("日期格式应为 YYYYMMDD")
+	}
+	if today, _ := time.ParseInLocation("20060102", TodayCST(), cst); t.After(today) {
+		t = today
+	}
+	if t.Before(f) {
+		return nil, gerror.New("开始日期不能晚于结束日期")
+	}
+	var out []string
+	for d := f; !d.After(t); d = d.AddDate(0, 0, 1) {
+		if len(out) == maxRangeDays {
+			return nil, gerror.Newf("日期范围最多 %d 天", maxRangeDays)
+		}
+		out = append(out, d.Format("20060102"))
+	}
+	return out, nil
+}
+
+// ReportRange 已入库且无需刷新的日期直接读库, 其余请求接口并入库; 推广位按范围在库里汇总。
+func ReportRange(ctx context.Context, appKey string, category int, from, to string) (*RangeReport, error) {
 	secret, err := secretOf(ctx, appKey)
 	if err != nil {
 		return nil, err
 	}
-	dates := lastDays(days)
-	stored, err := loadDays(ctx, appKey, category, dates[0], dates[len(dates)-1])
+	dates, err := dateRange(from, to)
+	if err != nil {
+		return nil, err
+	}
+	from, to = dates[0], dates[len(dates)-1]
+	stored, err := loadDays(ctx, appKey, category, from, to)
 	if err != nil {
 		return nil, err
 	}
 	now := time.Now()
+	out := &RangeReport{From: from, To: to, Trend: []TrendPoint{}, List: []ReportRow{}, Failed: []string{}}
 	var lastErr error
-	out := make([]TrendPoint, 0, days)
 	for _, d := range dates {
+		p := TrendPoint{Date: d}
 		if day := stored[d]; day != nil && fresh(d, day.FetchedAt, now) {
-			out = append(out, TrendPoint{Date: d, Fund: day.TotalFund, Use: day.TotalUse})
-			continue
-		}
-		rep, err := getReport(ctx, appKey, secret, d, category, stored[d])
-		if err != nil {
+			p.Fund, p.Use = day.TotalFund, day.TotalUse
+		} else if rep, err := getReport(ctx, appKey, secret, d, category, stored[d]); err != nil {
 			lastErr = fmt.Errorf("%s: %w", d, err) // 跳过失败日期, 返回部分数据
+			out.Failed = append(out.Failed, d)
 			continue
+		} else {
+			p.Fund, p.Use = rep.TotalFund, rep.TotalUse
 		}
-		out = append(out, TrendPoint{Date: d, Fund: rep.TotalFund, Use: rep.TotalUse})
+		out.TotalFund += p.Fund
+		out.TotalUse += p.Use
+		out.Trend = append(out.Trend, p)
 	}
-	if len(out) == 0 && lastErr != nil {
+	if len(out.Trend) == 0 && lastErr != nil {
 		return nil, lastErr
 	}
-	return out, nil
+	err = g.Model(TableRptPid).Ctx(ctx).Fields("pid, SUM(fund_num) AS fund_num, SUM(use_num) AS use_num").
+		Where("app_key", appKey).Where("category", category).WhereBetween("biz_date", from, to).
+		Group("pid").OrderDesc("fund_num").Scan(&out.List)
+	return out, err
 }
 
 // todayTotals 卡片用: 只读库里今天的合计, 不发请求。

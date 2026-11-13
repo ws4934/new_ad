@@ -26,16 +26,11 @@ func (c *Controller) Stats(ctx context.Context, req *v1.StatsReq) (*v1.StatsRes,
 }
 
 func (c *Controller) Report(ctx context.Context, req *v1.ReportReq) (*v1.ReportRes, error) {
-	rep, err := issue.ReportFor(ctx, req.AppKey, req.Date, req.Category)
+	rep, err := issue.ReportRange(ctx, req.AppKey, req.Category, req.From, req.To)
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ReportRes{Report: rep}, nil
-}
-
-func (c *Controller) ReportTrend(ctx context.Context, req *v1.ReportTrendReq) (*v1.ReportTrendRes, error) {
-	list, err := issue.ReportTrend(ctx, req.AppKey, req.Category, req.Days)
-	return &v1.ReportTrendRes{List: list}, err
+	return &v1.ReportRes{RangeReport: rep}, nil
 }
 
 func (c *Controller) Create(ctx context.Context, req *v1.CreateReq) (*v1.CreateRes, error) {

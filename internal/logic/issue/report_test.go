@@ -26,3 +26,26 @@ func TestReportFresh(t *testing.T) {
 		}
 	}
 }
+
+func TestDateRange(t *testing.T) {
+	today := TodayCST()
+	tomorrow := time.Now().In(cst).AddDate(0, 0, 1).Format("20060102")
+	if d, err := dateRange("20261101", "20261103"); err != nil || len(d) != 3 || d[0] != "20261101" || d[2] != "20261103" {
+		t.Fatalf("3 days: %v %v", d, err)
+	}
+	if d, err := dateRange(today, tomorrow); err != nil || len(d) != 1 || d[0] != today {
+		t.Fatalf("future end should clamp to today: %v %v", d, err)
+	}
+	if _, err := dateRange("20261103", "20261101"); err == nil {
+		t.Fatal("reversed range should fail")
+	}
+	if _, err := dateRange("20261001", "20261031"); err != nil {
+		t.Fatalf("31 days should pass: %v", err)
+	}
+	if _, err := dateRange("20261001", "20261101"); err == nil {
+		t.Fatal("32 days should fail")
+	}
+	if _, err := dateRange("2026-11-01", "20261101"); err == nil {
+		t.Fatal("bad format should fail")
+	}
+}

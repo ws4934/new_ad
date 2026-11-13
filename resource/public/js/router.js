@@ -1,18 +1,18 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { isLoggedIn } from './api.js?v=8'
+import { isLoggedIn } from './api.js?v=9'
 
 const routes = [
-  { path: '/login', component: () => import('./pages/Login.js?v=8'), meta: { public: true } },
-  { path: '/', component: () => import('./pages/Dashboard.js?v=8') },
-  { path: '/platforms', component: () => import('./pages/Platforms.js?v=8') },
-  { path: '/accounts', component: () => import('./pages/Accounts.js?v=8') },
-  { path: '/accounts/:id', component: () => import('./pages/AccountDetail.js?v=8'), props: true },
-  { path: '/stats', component: () => import('./pages/Stats.js?v=8') },
-  { path: '/export', component: () => import('./pages/Export.js?v=8') },
-  { path: '/issue', component: () => import('./pages/IssueStatus.js?v=8') },
-  { path: '/issue-report', component: () => import('./pages/IssueReport.js?v=8') },
-  { path: '/issue-config', component: () => import('./pages/IssueConfig.js?v=8') },
-  { path: '/system', component: () => import('./pages/System.js?v=8') },
+  { path: '/login', component: () => import('./pages/Login.js?v=9'), meta: { public: true } },
+  { path: '/', component: () => import('./pages/Dashboard.js?v=9') },
+  { path: '/platforms', component: () => import('./pages/Platforms.js?v=9') },
+  { path: '/accounts', component: () => import('./pages/Accounts.js?v=9') },
+  { path: '/accounts/:id', component: () => import('./pages/AccountDetail.js?v=9'), props: true },
+  { path: '/stats', component: () => import('./pages/Stats.js?v=9') },
+  { path: '/export', component: () => import('./pages/Export.js?v=9') },
+  { path: '/issue', component: () => import('./pages/IssueStatus.js?v=9') },
+  { path: '/issue-report', component: () => import('./pages/IssueReport.js?v=9') },
+  { path: '/issue-config', component: () => import('./pages/IssueConfig.js?v=9') },
+  { path: '/system', component: () => import('./pages/System.js?v=9') },
 ]
 
 export const router = createRouter({

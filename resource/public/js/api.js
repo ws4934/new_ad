@@ -86,7 +86,6 @@ export const api = {
   issueLogs: (id, limit = 50) => request(`/api/v2/issue-monitors/${id}/logs`, { query: { limit } }),
   issueStats: (id, hours = 24) => request(`/api/v2/issue-monitors/${id}/stats`, { query: { hours } }),
   issueReport: (query) => request('/api/v2/issue-report', { query }),
-  issueReportTrend: (query) => request('/api/v2/issue-report/trend', { query }),
 
   // 邮件
   smtpGet: () => request('/api/v2/settings/smtp'),
