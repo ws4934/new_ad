@@ -31,7 +31,7 @@ type ReportRow struct {
 	ReportTotals
 }
 
-// ReportTotals 8 个计数器
+// ReportTotals 12 个计数器
 type ReportTotals struct {
 	ClickCount  int `json:"clickCount"`
 	TaolianOk   int `json:"taolianOk"`
@@ -40,7 +40,11 @@ type ReportTotals struct {
 	CallbackErr int `json:"callbackErr"`
 	FakeOk      int `json:"fakeOk"`
 	FakeErr     int `json:"fakeErr"`
-	DropCount   int `json:"dropCount"`
+	DropCount   int `json:"dropCount"` // 监测点击丢弃
+	DebugOk     int `json:"debugOk"`   // 联调模拟回传 (不含在 CallbackOk 里)
+	DebugErr    int `json:"debugErr"`
+	CbRecv      int `json:"cbRecv"` // 收到淘联转化回调
+	CbDrop      int `json:"cbDrop"` // 淘联回调丢弃
 }
 
 // IsEmpty 全部计数为 0
@@ -58,6 +62,10 @@ func (t *ReportTotals) Add(o *ReportTotals) {
 	t.FakeOk += o.FakeOk
 	t.FakeErr += o.FakeErr
 	t.DropCount += o.DropCount
+	t.DebugOk += o.DebugOk
+	t.DebugErr += o.DebugErr
+	t.CbRecv += o.CbRecv
+	t.CbDrop += o.CbDrop
 }
 
 // QueryReport 历史统计报表
@@ -107,7 +115,7 @@ func QueryReport(ctx context.Context, startDate, endDate string, accountID, plat
 
 	res := &ReportData{Rows: []*ReportRow{}, Summary: &ReportTotals{}}
 
-	// ── 1. 今日实时 (区间包含今天时): Redis MGet 批量读 8 个计数器 ──
+	// ── 1. 今日实时 (区间包含今天时): Redis MGet 批量读 12 个计数器 ──
 	todayStr := now.Format("2006-01-02")
 	if startDate <= todayStr && todayStr <= endDate {
 		rows, err := todayLiveRows(ctx, accts, platName, accountID, platformID)
@@ -148,6 +156,10 @@ func QueryReport(ctx context.Context, startDate, endDate string, accountID, plat
 				FakeOk:      h.FakeOk,
 				FakeErr:     h.FakeErr,
 				DropCount:   h.DropCount,
+				DebugOk:     h.DebugOk,
+				DebugErr:    h.DebugErr,
+				CbRecv:      h.CbRecv,
+				CbDrop:      h.CbDrop,
 			},
 		}
 		if a, ok := acctByID[h.AccountId]; ok {
@@ -183,8 +195,8 @@ func todayLiveRows(ctx context.Context, accts []*entity.AdAccount, platName map[
 		return nil, nil
 	}
 
-	// 每账户 8 个 key, 一次 MGet
-	keys := make([]string, 0, len(filtered)*8)
+	// 每账户 12 个 key, 一次 MGet
+	keys := make([]string, 0, len(filtered)*12)
 	for _, a := range filtered {
 		keys = append(keys,
 			consts.KeyStatsClick(a.Id, day),
@@ -195,6 +207,10 @@ func todayLiveRows(ctx context.Context, accts []*entity.AdAccount, platName map[
 			consts.KeyStatsFakeOk(a.Id, day),
 			consts.KeyStatsFakeErr(a.Id, day),
 			consts.KeyStatsDrop(a.Id, day),
+			consts.KeyStatsDebugOk(a.Id, day),
+			consts.KeyStatsDebugErr(a.Id, day),
+			consts.KeyStatsCbRecv(a.Id, day),
+			consts.KeyStatsCbDrop(a.Id, day),
 		)
 	}
 	counters, err := g.Redis().MGet(ctx, keys...)
@@ -211,7 +227,7 @@ func todayLiveRows(ctx context.Context, accts []*entity.AdAccount, platName map[
 
 	rows := make([]*ReportRow, 0, len(filtered))
 	for i, a := range filtered {
-		base := i * 8
+		base := i * 12
 		t := ReportTotals{
 			ClickCount:  get(keys[base]),
 			TaolianOk:   get(keys[base+1]),
@@ -221,6 +237,10 @@ func todayLiveRows(ctx context.Context, accts []*entity.AdAccount, platName map[
 			FakeOk:      get(keys[base+5]),
 			FakeErr:     get(keys[base+6]),
 			DropCount:   get(keys[base+7]),
+			DebugOk:     get(keys[base+8]),
+			DebugErr:    get(keys[base+9]),
+			CbRecv:      get(keys[base+10]),
+			CbDrop:      get(keys[base+11]),
 		}
 		// 全 0 跳过, 和归档逻辑一致
 		if t.IsEmpty() {

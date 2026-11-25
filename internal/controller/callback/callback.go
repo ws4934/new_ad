@@ -35,11 +35,12 @@ func (c *Controller) Receive(ctx context.Context, req *v1.CallbackReq) (res *v1.
 	}()
 
 	accountID := req.A
+	stats.IncrCounter(ctx, "cb:recv", accountID)
 
 	// 1. 加载账户
 	acct, err := cache.GetAccount(ctx, accountID)
 	if err != nil || acct == nil || acct.Status != 1 {
-		stats.IncrCounter(ctx, "drop", accountID)
+		stats.IncrCounter(ctx, "cb:drop", accountID)
 		g.Log().Warningf(ctx, "callback: account %d not found or disabled", accountID)
 		return nil, nil
 	}
@@ -47,7 +48,7 @@ func (c *Controller) Receive(ctx context.Context, req *v1.CallbackReq) (res *v1.
 	// 2. 查找行为映射
 	mappings, err := cache.GetMappings(ctx, accountID)
 	if err != nil {
-		stats.IncrCounter(ctx, "drop", accountID)
+		stats.IncrCounter(ctx, "cb:drop", accountID)
 		return nil, nil
 	}
 	var mappedType string
@@ -60,7 +61,7 @@ func (c *Controller) Receive(ctx context.Context, req *v1.CallbackReq) (res *v1.
 		}
 	}
 	if mappedType == "" {
-		stats.IncrCounter(ctx, "drop", accountID)
+		stats.IncrCounter(ctx, "cb:drop", accountID)
 		g.Log().Warningf(ctx, "callback: no mapping for account=%d transformType=%d", accountID, req.TransformType)
 		return nil, nil
 	}

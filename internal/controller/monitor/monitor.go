@@ -137,6 +137,7 @@ func (c *Controller) Receive(ctx context.Context, req *v1.MonitorReq) (res *v1.M
 				MappedType:  m.PlatformType,
 				Devices:     devices,
 				TS:          now.UnixMilli(),
+				Debug:       true,
 			})
 			g.Log().Debugf(ctx, "monitor: debug enqueue callback event=%s for account=%d", m.PlatformType, accountID)
 		}

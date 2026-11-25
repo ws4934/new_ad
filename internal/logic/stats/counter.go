@@ -29,6 +29,8 @@ const counterFlushInterval = time.Second
 
 // IncrCounter 通用计数器, 进程内聚合后由 worker 批量落 Redis
 // kind: click / taolian:ok / taolian:err / callback:ok / callback:err / fake:ok / fake:err / drop
+//
+//	/ debug:ok / debug:err (联调模拟回传) / cb:recv / cb:drop (淘联转化回调)
 func IncrCounter(ctx context.Context, kind string, accountID int) {
 	day := Today()
 	var key string
@@ -49,6 +51,14 @@ func IncrCounter(ctx context.Context, kind string, accountID int) {
 		key = consts.KeyStatsFakeErr(accountID, day)
 	case "drop":
 		key = consts.KeyStatsDrop(accountID, day)
+	case "debug:ok":
+		key = consts.KeyStatsDebugOk(accountID, day)
+	case "debug:err":
+		key = consts.KeyStatsDebugErr(accountID, day)
+	case "cb:recv":
+		key = consts.KeyStatsCbRecv(accountID, day)
+	case "cb:drop":
+		key = consts.KeyStatsCbDrop(accountID, day)
 	default:
 		g.Log().Warningf(ctx, "unknown counter kind: %s", kind)
 		return

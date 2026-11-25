@@ -23,6 +23,10 @@ type ReportStats struct {
 	CallbackErr any         //
 	FakeOk      any         //
 	FakeErr     any         //
-	DropCount   any         //
+	DropCount   any         // 监测点击丢弃
 	CreatedAt   *gtime.Time //
+	DebugOk     any         // 联调模拟回传成功
+	DebugErr    any         // 联调模拟回传失败
+	CbRecv      any         // 收到淘联转化回调
+	CbDrop      any         // 淘联回调丢弃
 }

@@ -17,7 +17,8 @@ type CallbackTaskPayload struct {
 	TaolianType int                             `json:"tt"`
 	MappedType  string                          `json:"mt"`
 	Devices     map[consts.InternalField]string `json:"dev"`
-	TS          int64                           `json:"ts"` // 转化时间(毫秒), 入队时确定, 重试不变
+	TS          int64                           `json:"ts"`            // 转化时间(毫秒), 入队时确定, 重试不变
+	Debug       bool                            `json:"dbg,omitempty"` // 联调模式模拟回传 (单独计数)
 }
 
 // FakeTaskPayload 虚假回传任务 payload

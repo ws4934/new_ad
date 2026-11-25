@@ -231,9 +231,12 @@ func TestIntegration_CallbackReceive_NoMapping(t *testing.T) {
 	aid := getTestAccountID(ctx, t)
 	day := time.Now().Format("20060102")
 
-	g.Redis().Del(ctx, consts.KeyStatsDrop(aid, day))
+	stats.FlushCounters(ctx) // 先落掉前面测试攒在内存里的计数, 再清 key
+	for _, k := range []string{consts.KeyStatsDrop(aid, day), consts.KeyStatsCbRecv(aid, day), consts.KeyStatsCbDrop(aid, day)} {
+		g.Redis().Del(ctx, k)
+	}
 
-	// transformType=99 没有映射 → drop
+	// transformType=99 没有映射 → 计入淘联回调丢弃, 不算监测点击丢弃
 	url := fmt.Sprintf("http://127.0.0.1:%d/cb?a=%d&p=weibo&c=TEST_CB_IMP&transformType=99", s.GetListenedPort(), aid)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -245,9 +248,12 @@ func TestIntegration_CallbackReceive_NoMapping(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	stats.FlushCounters(ctx)
-	dropCount, _ := g.Redis().Get(ctx, consts.KeyStatsDrop(aid, day))
-	gtest.Assert(dropCount.Int() >= 1, true)
-	t.Logf("drop=%d", dropCount.Int())
+	recv, _ := g.Redis().Get(ctx, consts.KeyStatsCbRecv(aid, day))
+	cbDrop, _ := g.Redis().Get(ctx, consts.KeyStatsCbDrop(aid, day))
+	clickDrop, _ := g.Redis().Get(ctx, consts.KeyStatsDrop(aid, day))
+	gtest.Assert(recv.Int(), 1)
+	gtest.Assert(cbDrop.Int(), 1)
+	gtest.Assert(clickDrop.Int(), 0)
 }
 
 func TestIntegration_MonitorReceive_DedupBloom(t *testing.T) {

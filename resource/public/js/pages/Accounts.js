@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=15'
+import { api } from '../api.js?v=16'
 
 export default {
   setup() {
@@ -289,7 +289,10 @@ export default {
                 <td>{{ a.name }}</td>
                 <td>{{ a.todayClick }}</td>
                 <td class="text-success">{{ a.todayTaolian }}</td>
-                <td class="text-info">{{ a.todayCallback }}</td>
+                <td class="text-info">
+                  {{ a.todayCallback }}
+                  <div v-if="a.todayDebug" class="text-xs opacity-60">联调 {{ a.todayDebug }}</div>
+                </td>
                 <td class="text-warning">{{ a.todayFake }}</td>
                 <td>
                   <span v-if="a.fakeEnabled" class="badge badge-primary badge-sm">{{ a.fakeRate }}%</span>

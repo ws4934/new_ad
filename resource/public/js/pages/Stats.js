@@ -1,6 +1,6 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=15'
-import TrendChart from '../components/TrendChart.js?v=15'
+import { api } from '../api.js?v=16'
+import TrendChart from '../components/TrendChart.js?v=16'
 
 // 日期转 YYYY-MM-DD
 function fmtDate(d) {
@@ -69,11 +69,11 @@ export default {
     // 客户端导出当前表格为 CSV
     const exportCSV = () => {
       if (!rows.value.length) return
-      const header = '日期,账户,平台,点击,淘联成功,淘联失败,真实回传,回传失败,虚假回传,虚假失败,丢弃'
+      const header = '日期,账户,平台,点击,淘联成功,淘联失败,淘联回调,回调丢弃,真实回传,回传失败,联调回传,联调失败,虚假回传,虚假失败,点击丢弃'
       const lines = rows.value.map(r => [
         r.statDate, r.accountName || r.accountId, r.platformName,
-        r.clickCount, r.taolianOk, r.taolianErr,
-        r.callbackOk, r.callbackErr, r.fakeOk, r.fakeErr, r.dropCount,
+        r.clickCount, r.taolianOk, r.taolianErr, r.cbRecv, r.cbDrop,
+        r.callbackOk, r.callbackErr, r.debugOk, r.debugErr, r.fakeOk, r.fakeErr, r.dropCount,
       ].join(','))
       const blob = new Blob(['﻿' + [header, ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
       const a = document.createElement('a')
@@ -128,7 +128,7 @@ export default {
       </div>
 
       <!-- 区间汇总 -->
-      <div class="grid grid-cols-3 md:grid-cols-6 gap-3" v-if="summary">
+      <div class="grid grid-cols-4 md:grid-cols-8 gap-3" v-if="summary">
         <div class="stat bg-base-100 shadow rounded-box py-3">
           <div class="stat-title text-xs">点击</div>
           <div class="stat-value text-xl">{{ summary.clickCount }}</div>
@@ -139,9 +139,19 @@ export default {
           <div class="stat-desc" v-if="summary.taolianErr">失败 {{ summary.taolianErr }}</div>
         </div>
         <div class="stat bg-base-100 shadow rounded-box py-3">
+          <div class="stat-title text-xs">淘联回调</div>
+          <div class="stat-value text-xl">{{ summary.cbRecv }}</div>
+          <div class="stat-desc" v-if="summary.cbDrop">丢弃 {{ summary.cbDrop }}</div>
+        </div>
+        <div class="stat bg-base-100 shadow rounded-box py-3">
           <div class="stat-title text-xs">真实回传</div>
           <div class="stat-value text-xl text-info">{{ summary.callbackOk }}</div>
           <div class="stat-desc" v-if="summary.callbackErr">失败 {{ summary.callbackErr }}</div>
+        </div>
+        <div class="stat bg-base-100 shadow rounded-box py-3">
+          <div class="stat-title text-xs">联调回传</div>
+          <div class="stat-value text-xl">{{ summary.debugOk }}</div>
+          <div class="stat-desc" v-if="summary.debugErr">失败 {{ summary.debugErr }}</div>
         </div>
         <div class="stat bg-base-100 shadow rounded-box py-3">
           <div class="stat-title text-xs">虚假回传</div>
@@ -149,7 +159,7 @@ export default {
           <div class="stat-desc" v-if="summary.fakeErr">失败 {{ summary.fakeErr }}</div>
         </div>
         <div class="stat bg-base-100 shadow rounded-box py-3">
-          <div class="stat-title text-xs">丢弃</div>
+          <div class="stat-title text-xs">点击丢弃</div>
           <div class="stat-value text-xl text-error">{{ summary.dropCount }}</div>
         </div>
         <div class="stat bg-base-100 shadow rounded-box py-3">
@@ -176,9 +186,11 @@ export default {
                 <th>日期</th><th>账户</th><th>平台</th>
                 <th class="text-right">点击</th>
                 <th class="text-right">淘联成功</th><th class="text-right">淘联失败</th>
+                <th class="text-right">淘联回调</th><th class="text-right">回调丢弃</th>
                 <th class="text-right">真实回传</th><th class="text-right">回传失败</th>
+                <th class="text-right">联调回传</th>
                 <th class="text-right">虚假回传</th><th class="text-right">虚假失败</th>
-                <th class="text-right">丢弃</th>
+                <th class="text-right">点击丢弃</th>
               </tr>
             </thead>
             <tbody>
@@ -192,14 +204,17 @@ export default {
                 <td class="text-right">{{ r.clickCount }}</td>
                 <td class="text-right text-success">{{ r.taolianOk }}</td>
                 <td class="text-right" :class="r.taolianErr ? 'text-error' : 'opacity-40'">{{ r.taolianErr }}</td>
+                <td class="text-right" :class="r.cbRecv ? '' : 'opacity-40'">{{ r.cbRecv }}</td>
+                <td class="text-right" :class="r.cbDrop ? 'text-error' : 'opacity-40'">{{ r.cbDrop }}</td>
                 <td class="text-right text-info">{{ r.callbackOk }}</td>
                 <td class="text-right" :class="r.callbackErr ? 'text-error' : 'opacity-40'">{{ r.callbackErr }}</td>
+                <td class="text-right" :class="r.debugOk ? '' : 'opacity-40'">{{ r.debugOk }}</td>
                 <td class="text-right text-warning">{{ r.fakeOk }}</td>
                 <td class="text-right" :class="r.fakeErr ? 'text-error' : 'opacity-40'">{{ r.fakeErr }}</td>
                 <td class="text-right" :class="r.dropCount ? 'text-error' : 'opacity-40'">{{ r.dropCount }}</td>
               </tr>
               <tr v-if="!rows.length && !loading">
-                <td colspan="11" class="text-center py-8 opacity-50">所选区间内无数据</td>
+                <td colspan="14" class="text-center py-8 opacity-50">所选区间内无数据</td>
               </tr>
             </tbody>
           </table>

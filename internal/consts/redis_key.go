@@ -17,7 +17,11 @@ func KeyStatsCallbackOk(aid int, day string) string  { return fmt.Sprintf("stats
 func KeyStatsCallbackErr(aid int, day string) string { return fmt.Sprintf("stats:callback:err:%d:%s", aid, day) }
 func KeyStatsFakeOk(aid int, day string) string      { return fmt.Sprintf("stats:fake:ok:%d:%s", aid, day) }
 func KeyStatsFakeErr(aid int, day string) string     { return fmt.Sprintf("stats:fake:err:%d:%s", aid, day) }
-func KeyStatsDrop(aid int, day string) string        { return fmt.Sprintf("stats:drop:%d:%s", aid, day) }
+func KeyStatsDrop(aid int, day string) string        { return fmt.Sprintf("stats:drop:%d:%s", aid, day) }     // 监测点击丢弃
+func KeyStatsDebugOk(aid int, day string) string     { return fmt.Sprintf("stats:debug:ok:%d:%s", aid, day) }  // 联调模拟回传
+func KeyStatsDebugErr(aid int, day string) string    { return fmt.Sprintf("stats:debug:err:%d:%s", aid, day) }
+func KeyStatsCbRecv(aid int, day string) string      { return fmt.Sprintf("stats:cbrecv:%d:%s", aid, day) }    // 收到淘联转化回调
+func KeyStatsCbDrop(aid int, day string) string      { return fmt.Sprintf("stats:cbdrop:%d:%s", aid, day) }    // 淘联回调丢弃
 
 // --- 每账户最近 50 条监测请求 (调试观察) ---
 func KeyReqLog(aid int) string { return fmt.Sprintf("reqlog:%d", aid) }

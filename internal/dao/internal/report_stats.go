@@ -32,8 +32,12 @@ type ReportStatsColumns struct {
 	CallbackErr string //
 	FakeOk      string //
 	FakeErr     string //
-	DropCount   string //
+	DropCount   string // 监测点击丢弃
 	CreatedAt   string //
+	DebugOk     string // 联调模拟回传成功
+	DebugErr    string // 联调模拟回传失败
+	CbRecv      string // 收到淘联转化回调
+	CbDrop      string // 淘联回调丢弃
 }
 
 // reportStatsColumns holds the columns for the table report_stats.
@@ -51,6 +55,10 @@ var reportStatsColumns = ReportStatsColumns{
 	FakeErr:     "fake_err",
 	DropCount:   "drop_count",
 	CreatedAt:   "created_at",
+	DebugOk:     "debug_ok",
+	DebugErr:    "debug_err",
+	CbRecv:      "cb_recv",
+	CbDrop:      "cb_drop",
 }
 
 // NewReportStatsDao creates and returns a new DAO object for table data access.

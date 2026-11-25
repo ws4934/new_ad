@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -25,6 +26,17 @@ func retryIf5xx(status int, kind string) error {
 	return nil
 }
 
+// countErr 失败只在任务最终失败时计一次 (不再重试: SkipRetry / nil / 已到最大重试次数),
+// 否则重试会让 成功+失败 大于任务数。返回 ret 本身, 由 asynq 决定是否重试
+func countErr(ctx context.Context, kind string, accountID int, ret error) error {
+	retried, _ := asynq.GetRetryCount(ctx)
+	maxRetry, ok := asynq.GetMaxRetry(ctx)
+	if ret == nil || errors.Is(ret, asynq.SkipRetry) || !ok || retried >= maxRetry {
+		stats.IncrCounter(ctx, kind+":err", accountID)
+	}
+	return ret
+}
+
 // HandleTaolianReport 淘联上报任务处理器
 // asynq worker 触发, 调用 reporter.Report 发 HTTP 到淘联
 func HandleTaolianReport(ctx context.Context, t *asynq.Task) error {
@@ -35,32 +47,29 @@ func HandleTaolianReport(ctx context.Context, t *asynq.Task) error {
 
 	acct, err := cache.GetAccount(ctx, p.AccountID)
 	if err != nil || acct == nil {
-		stats.IncrCounter(ctx, "taolian:err", p.AccountID)
-		return asynq.SkipRetry // 账户不存在, 不重试
+		return countErr(ctx, "taolian", p.AccountID, asynq.SkipRetry) // 账户不存在, 不重试
 	}
 	platform, err := cache.GetPlatform(ctx, acct.PlatformId)
 	if err != nil {
-		stats.IncrCounter(ctx, "taolian:err", p.AccountID)
-		return asynq.SkipRetry
+		return countErr(ctx, "taolian", p.AccountID, asynq.SkipRetry)
 	}
 
 	rep := reporter.NewReporterFromConfig(ctx)
 	req := reporter.BuildReqFromAccount(ctx, acct, platform, p.ClickID, p.Devices, p.TS)
 	result, err := rep.Report(ctx, req)
 	if err != nil || result == nil || !result.Success {
-		stats.IncrCounter(ctx, "taolian:err", p.AccountID)
 		rawBody := ""
 		if result != nil {
 			rawBody = result.RawBody
 		}
 		g.Log().Warningf(ctx, "taolian report failed: err=%v body=%s", err, rawBody)
 		if err != nil {
-			return err // 网络/解析错误 → asynq 重试
+			return countErr(ctx, "taolian", p.AccountID, err) // 网络/解析错误 → asynq 重试
 		}
 		if result != nil {
-			return retryIf5xx(result.HTTPStatus, "taolian") // 5xx 临时故障 → 重试
+			return countErr(ctx, "taolian", p.AccountID, retryIf5xx(result.HTTPStatus, "taolian")) // 5xx 临时故障 → 重试
 		}
-		return nil // HTTP 正常但淘联响应非 success, 不重试
+		return countErr(ctx, "taolian", p.AccountID, nil)
 	}
 	stats.IncrCounter(ctx, "taolian:ok", p.AccountID)
 	return nil
@@ -72,23 +81,24 @@ func HandleCallbackReport(ctx context.Context, t *asynq.Task) error {
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
 		return err
 	}
+	kind := "callback" // 联调模式模拟的回传单独计数, 不算真实回传
+	if p.Debug {
+		kind = "debug"
+	}
 
 	acct, err := cache.GetAccount(ctx, p.AccountID)
 	if err != nil || acct == nil {
-		stats.IncrCounter(ctx, "callback:err", p.AccountID)
-		return asynq.SkipRetry
+		return countErr(ctx, kind, p.AccountID, asynq.SkipRetry)
 	}
 	platform, err := cache.GetPlatform(ctx, acct.PlatformId)
 	if err != nil {
-		stats.IncrCounter(ctx, "callback:err", p.AccountID)
-		return asynq.SkipRetry
+		return countErr(ctx, kind, p.AccountID, asynq.SkipRetry)
 	}
 
 	ad := adapter.Get(platform.Name)
 	if ad == nil {
-		stats.IncrCounter(ctx, "callback:err", p.AccountID)
 		g.Log().Warningf(ctx, "adapter not found: %s", platform.Name)
-		return asynq.SkipRetry
+		return countErr(ctx, kind, p.AccountID, asynq.SkipRetry)
 	}
 
 	payload := &bo.CallbackPayload{
@@ -102,21 +112,20 @@ func HandleCallbackReport(ctx context.Context, t *asynq.Task) error {
 	}
 	result, err := ad.ReportConversion(ctx, payload)
 	if err != nil || result == nil || !result.Success {
-		stats.IncrCounter(ctx, "callback:err", p.AccountID)
 		rawBody := ""
 		if result != nil {
 			rawBody = result.RawBody
 		}
 		g.Log().Warningf(ctx, "callback report failed: err=%v body=%s", err, rawBody)
 		if err != nil {
-			return err
+			return countErr(ctx, kind, p.AccountID, err)
 		}
 		if result != nil {
-			return retryIf5xx(result.HTTPStatus, "callback")
+			return countErr(ctx, kind, p.AccountID, retryIf5xx(result.HTTPStatus, "callback"))
 		}
-		return nil
+		return countErr(ctx, kind, p.AccountID, nil)
 	}
-	stats.IncrCounter(ctx, "callback:ok", p.AccountID)
+	stats.IncrCounter(ctx, kind+":ok", p.AccountID)
 	return nil
 }
 
@@ -130,8 +139,7 @@ func HandleFakeReport(ctx context.Context, t *asynq.Task) error {
 
 	acct, err := cache.GetAccount(ctx, p.AccountID)
 	if err != nil || acct == nil {
-		stats.IncrCounter(ctx, "fake:err", p.AccountID)
-		return asynq.SkipRetry
+		return countErr(ctx, "fake", p.AccountID, asynq.SkipRetry)
 	}
 
 	// 二次校验开关
@@ -142,13 +150,11 @@ func HandleFakeReport(ctx context.Context, t *asynq.Task) error {
 
 	platform, err := cache.GetPlatform(ctx, acct.PlatformId)
 	if err != nil {
-		stats.IncrCounter(ctx, "fake:err", p.AccountID)
-		return asynq.SkipRetry
+		return countErr(ctx, "fake", p.AccountID, asynq.SkipRetry)
 	}
 	ad := adapter.Get(platform.Name)
 	if ad == nil {
-		stats.IncrCounter(ctx, "fake:err", p.AccountID)
-		return asynq.SkipRetry
+		return countErr(ctx, "fake", p.AccountID, asynq.SkipRetry)
 	}
 
 	payload := &bo.CallbackPayload{
@@ -162,19 +168,18 @@ func HandleFakeReport(ctx context.Context, t *asynq.Task) error {
 	}
 	result, err := ad.ReportConversion(ctx, payload)
 	if err != nil || result == nil || !result.Success {
-		stats.IncrCounter(ctx, "fake:err", p.AccountID)
 		rawBody := ""
 		if result != nil {
 			rawBody = result.RawBody
 		}
 		g.Log().Warningf(ctx, "fake report failed: err=%v body=%s", err, rawBody)
 		if err != nil {
-			return err
+			return countErr(ctx, "fake", p.AccountID, err)
 		}
 		if result != nil {
-			return retryIf5xx(result.HTTPStatus, "fake")
+			return countErr(ctx, "fake", p.AccountID, retryIf5xx(result.HTTPStatus, "fake"))
 		}
-		return nil
+		return countErr(ctx, "fake", p.AccountID, nil)
 	}
 	stats.IncrCounter(ctx, "fake:ok", p.AccountID)
 	return nil
