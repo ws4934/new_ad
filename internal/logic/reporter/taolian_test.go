@@ -177,7 +177,7 @@ func TestReport_Params(t *testing.T) {
 }
 
 func TestTaolianOS(t *testing.T) {
-	for in, want := range map[string]string{"0": "0", "1": "1", "android": "0", "iOS": "1", "2": "", "": "", "__OS__": ""} {
+	for in, want := range map[string]string{"0": "0", "1": "1", "android": "0", "iOS": "1", "2": "3", "9": "", "": "", "__OS__": ""} {
 		if got := reporter.TaolianOS(in); got != want {
 			t.Errorf("TaolianOS(%q) = %q, want %q", in, got, want)
 		}

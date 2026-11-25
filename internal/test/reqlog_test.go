@@ -35,6 +35,9 @@ func TestIntegration_RequestLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if ttl, _ := g.Redis().TTL(ctx, key); ttl <= 0 {
+		t.Fatalf("request log has no TTL: %d", ttl)
+	}
 	if len(lines) != 50 || !strings.HasSuffix(lines[0].String(), " q=69") || !strings.HasSuffix(lines[49].String(), " q=20") {
 		t.Fatalf("len=%d first=%q last=%q", len(lines), lines[0], lines[len(lines)-1])
 	}

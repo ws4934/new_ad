@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 
+	"ad-monitor/internal/consts"
+
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -221,6 +223,15 @@ func prefixOfFile(filename string) string {
 	return name
 }
 
+func isDeviceField(s string) bool {
+	for _, f := range consts.DeviceFields {
+		if string(f) == s {
+			return true
+		}
+	}
+	return false
+}
+
 // ListFiles 列出 CSV 文件, 支持按 platform/field 筛选
 func (w *CSVWriter) ListFiles(platform, field, date string) ([]string, error) {
 	w.Flush() // 先落盘, 保证文件大小/内容是最新的
@@ -234,8 +245,11 @@ func (w *CSVWriter) ListFiles(platform, field, date string) ([]string, error) {
 			continue
 		}
 		name := e.Name()
-		if platform != "" && !strings.HasPrefix(name, platform+"_") {
-			continue
+		// 平台名精确匹配: 文件名 {平台}_{设备号类型}[_{分片}].csv, 前缀匹配会让 weibo 混进 weibo_direct
+		if platform != "" {
+			if rest, ok := strings.CutPrefix(prefixOfFile(name), platform+"_"); !ok || !isDeviceField(rest) {
+				continue
+			}
 		}
 		if field != "" && !strings.Contains(name, "_"+field) {
 			continue

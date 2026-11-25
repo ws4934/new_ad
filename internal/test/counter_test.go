@@ -2,6 +2,7 @@ package test_test
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -74,6 +75,7 @@ func TestIntegration_CounterBatchFlush(t *testing.T) {
 
 // TestIntegration_ResetToday 清零今日计数: Redis 已落盘 + 内存未落盘的都清掉; 昨天的计数和非统计 key 不动
 func TestIntegration_ResetToday(t *testing.T) {
+	skipUnlessResetAllowed(t)
 	ctx := context.Background()
 	const aid = 987656
 	day := stats.Today()
@@ -110,5 +112,13 @@ func TestIntegration_ResetToday(t *testing.T) {
 	stats.FlushCounters(ctx)
 	if v, _ := g.Redis().Get(ctx, consts.KeyStatsClick(aid, day)); v.Int() != 1 {
 		t.Errorf("click after reset = %d, want 1", v.Int())
+	}
+}
+
+// skipUnlessResetAllowed ResetToday 会清空所连 Redis 当天所有账户的统计, 只在一次性 Redis 上跑
+func skipUnlessResetAllowed(t *testing.T) {
+	t.Helper()
+	if os.Getenv("IT_ALLOW_RESET") != "1" {
+		t.Skip("会清空所连 Redis 当天所有账户的统计; 连一次性 Redis 时设置 IT_ALLOW_RESET=1")
 	}
 }

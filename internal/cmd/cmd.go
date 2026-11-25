@@ -22,6 +22,7 @@ import (
 	"ad-monitor/internal/logic/updater"
 	"ad-monitor/resource/public"
 
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gcmd"
@@ -57,7 +58,8 @@ ON CONFLICT (name) DO NOTHING`); err != nil {
   ADD COLUMN IF NOT EXISTS cb_recv   INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS cb_drop   INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS dup_count INT NOT NULL DEFAULT 0`); err != nil {
-				g.Log().Warningf(ctx, "migrate report_stats: %v", err)
+				// 必须终止: ORM 会静默丢掉表里没有的列, 归档写库成功后还会删 Redis 计数, 数据就丢了
+				return gerror.Wrap(err, "migrate report_stats")
 			}
 			_, _ = gcron.AddSingleton(ctx, "*/5 * * * * *", issue.Tick, "issue-monitor")
 			_, _ = gcron.AddSingleton(ctx, "*/30 * * * * *", issue.RefreshReports, "issue-report")

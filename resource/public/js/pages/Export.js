@@ -1,5 +1,5 @@
 import { ref, inject, onMounted } from 'vue'
-import { api, getToken } from '../api.js?v=18'
+import { api, getToken } from '../api.js?v=19'
 
 export default {
   setup() {

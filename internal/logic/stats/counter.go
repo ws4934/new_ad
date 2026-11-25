@@ -3,6 +3,7 @@ package stats
 import (
 	"context"
 	"hash/fnv"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,19 +37,23 @@ const counterFlushInterval = time.Second
 // clickSetTTL 去重集合保留 2 天 (key 按天, 覆盖跨零点)
 const clickSetTTL = 2 * 24 * 3600
 
-// firstClickLua 加入当天点击ID集合并续期, 返回 1 = 首次出现, 0 = 重复 (一次往返)
-const firstClickLua = `local n = redis.call('SADD', KEYS[1], ARGV[1])
+// firstClickLua 昨天集合里已有 → 重复 (跨零点重发); 否则加入当天集合并续期。
+// 返回 1 = 首次出现, 0 = 重复 (一次往返)
+const firstClickLua = `if redis.call('SISMEMBER', KEYS[2], ARGV[1]) == 1 then return 0 end
+local n = redis.call('SADD', KEYS[1], ARGV[1])
 if n == 1 then redis.call('EXPIRE', KEYS[1], ARGV[2]) end
 return n`
 
-// FirstClick 点击ID今天是否第一次出现; 同一次广告点击的重复请求返回 false。
+// FirstClick 点击ID今天/昨天是否第一次出现; 同一次广告点击的重复请求返回 false。
 // 点击ID存 64 位 hash, 降低 Redis 占用 (IMP 原值上百字节)。
 // Redis 出错时当作首次放行, 不因去重丢掉真实点击
 func FirstClick(ctx context.Context, accountID int, clickID string) bool {
 	h := fnv.New64a()
 	h.Write([]byte(clickID))
-	key := consts.KeyStatsClickSet(accountID, Today())
-	v, err := g.Redis().Do(ctx, "EVAL", firstClickLua, 1, key, strconv.FormatUint(h.Sum64(), 36), clickSetTTL)
+	now := time.Now()
+	today := consts.KeyStatsClickSet(accountID, now.Format("20060102"))
+	yesterday := consts.KeyStatsClickSet(accountID, now.AddDate(0, 0, -1).Format("20060102"))
+	v, err := g.Redis().Do(ctx, "EVAL", firstClickLua, 2, today, yesterday, strconv.FormatUint(h.Sum64(), 36), clickSetTTL)
 	if err != nil {
 		g.Log().Warningf(ctx, "click dedup failed, treat as first: %v", err)
 		return true
@@ -139,7 +144,6 @@ func ResetToday(ctx context.Context) (int, error) {
 		}
 	}
 	cntMu.Unlock()
-	// 点击去重集合 stats:clickset:*:<day> 也在下面的 SCAN 范围内, 一起清掉
 
 	deleted := 0
 	var cursor uint64
@@ -148,6 +152,8 @@ func ResetToday(ctx context.Context) (int, error) {
 		if err != nil {
 			return deleted, err
 		}
+		// 点击去重集合不清: 重置只清统计, 否则清零后重发的老点击会再次上报淘联
+		keys = slices.DeleteFunc(keys, func(k string) bool { return strings.HasPrefix(k, "stats:clickset:") })
 		if len(keys) > 0 {
 			n, err := g.Redis().Del(ctx, keys...)
 			if err != nil {

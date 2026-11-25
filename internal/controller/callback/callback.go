@@ -29,9 +29,11 @@ func New(d *dedup.Dedup) *Controller {
 // Receive 淘联回传入口
 func (c *Controller) Receive(ctx context.Context, req *v1.CallbackReq) (res *v1.CallbackRes, err error) {
 	r := g.RequestFromCtx(ctx)
+	// 入队失败回 500: 不能对淘联谎报 success, 否则这条转化直接丢失
+	status, body := http.StatusOK, "success"
 	defer func() {
-		r.Response.WriteStatus(http.StatusOK)
-		r.Response.WriteString("success")
+		r.Response.WriteStatus(status)
+		r.Response.WriteString(body)
 	}()
 
 	accountID := req.A
@@ -79,6 +81,7 @@ func (c *Controller) Receive(ctx context.Context, req *v1.CallbackReq) (res *v1.
 				}
 			}
 			if !allowed {
+				stats.IncrCounter(ctx, "cb:drop", accountID)
 				g.Log().Infof(ctx, "callback: debug mode skip event=%s account=%d", mappedType, accountID)
 				return nil, nil
 			}
@@ -114,6 +117,8 @@ func (c *Controller) Receive(ctx context.Context, req *v1.CallbackReq) (res *v1.
 		Devices:     devices,
 		TS:          time.Now().UnixMilli(),
 	}); err != nil {
+		stats.IncrCounter(ctx, "cb:drop", accountID)
+		status, body = http.StatusInternalServerError, "error"
 		g.Log().Warningf(ctx, "enqueue callback failed: %v", err)
 	}
 

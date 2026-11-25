@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=18'
+import { api } from '../api.js?v=19'
 
 export default {
   setup() {
@@ -219,16 +219,21 @@ export default {
     const reqLoading = ref(false)
     const macroRe = /^(__[A-Z_0-9]+__|\{[A-Za-z_0-9]+\})$/
     const loadRequests = async () => {
+      const id = reqTarget.value.id
       reqLoading.value = true
       try {
-        const res = await api.accountRequests(reqTarget.value.id)
+        const res = await api.accountRequests(id)
+        if (reqTarget.value?.id !== id) return // 已切到别的账户, 丢弃过期响应
         // 每行: "2006-01-02 15:04:05.000 <query>", 时间固定 23 位
         reqList.value = (res.list || []).map(line => ({
           time: line.slice(0, 23),
           params: [...new URLSearchParams(line.slice(24))].map(([k, v]) => ({ k, v, macro: !v || macroRe.test(v) })),
         }))
-      } catch (e) { toast.show('加载失败: ' + e.message, 'error') }
-      reqLoading.value = false
+      } catch (e) {
+        toast.show('加载失败: ' + e.message, 'error')
+      } finally {
+        reqLoading.value = false
+      }
     }
     const openRequests = (a) => { reqTarget.value = a; reqList.value = []; loadRequests() }
 

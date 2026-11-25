@@ -89,15 +89,17 @@ func isMacroValue(v string) bool {
 	return false
 }
 
-// taolianOS 各平台系统宏统一为淘联枚举 (0 Android / 1 iOS)。
-// 微博 __OS__ / 小红书 __OS__ 是 0/1, 微博 {devicetype} 是 android/ios;
-// 小红书鸿蒙=2 与淘联 2=wp 冲突, 其他值一律不传
+// taolianOS 各平台系统宏统一为淘联枚举 (0 Android / 1 iOS / 3 鸿蒙)。
+// 微博 __OS__ 是 0/1, {devicetype} 是 android/ios; 小红书 __OS__ 0/1/2 (2=鸿蒙, 淘联鸿蒙是 3);
+// 其他值一律不传
 func taolianOS(v string) string {
 	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "0", "android":
 		return "0"
 	case "1", "ios":
 		return "1"
+	case "2":
+		return "3"
 	}
 	return ""
 }

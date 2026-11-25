@@ -1,5 +1,5 @@
 import { ref, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=18'
+import { api } from '../api.js?v=19'
 
 const CATS = { 1: '超级红包', 2: '福利购', 4: '福利直降' }
 const emptyForm = () => ({ id: 0, name: '', appKey: '34070427', appSecret: '', activityCategory: 1, intervalSec: 30, notifyEmails: '', enabled: true })
