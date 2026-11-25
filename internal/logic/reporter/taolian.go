@@ -183,7 +183,8 @@ func (r *Reporter) Report(ctx context.Context, req *TaolianReportReq) (*TaolianR
 	// 4. 调用淘联 (POST form, 对接文档支持 GET/POST)
 	g.Log().Debugf(ctx, "taolian report POST: %s params=%s", r.BaseURL, params.Encode())
 
-	resp, err := httpx.New().Post(ctx, r.BaseURL, params)
+	// 必须传 Encode() 后的字符串: gclient 会把 url.Values 的 []string 值序列化成 `["x"]`
+	resp, err := httpx.New().ContentType("application/x-www-form-urlencoded").Post(ctx, r.BaseURL, params.Encode())
 	if err != nil {
 		return &TaolianResult{Success: false}, err
 	}
