@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -223,6 +224,8 @@ func TestIntegration_CallbackReceive_ValidMapping(t *testing.T) {
 	defer resp.Body.Close()
 
 	gtest.Assert(resp.StatusCode, 200)
+	body, _ := io.ReadAll(resp.Body)
+	gtest.Assert(string(body), "success") // 淘联要求的应答, 不能多出状态文字
 }
 
 func TestIntegration_CallbackReceive_NoMapping(t *testing.T) {

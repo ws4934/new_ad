@@ -31,10 +31,8 @@ func (c *Controller) Receive(ctx context.Context, req *v1.CallbackReq) (res *v1.
 	r := g.RequestFromCtx(ctx)
 	// 入队失败回 500: 不能对淘联谎报 success, 否则这条转化直接丢失
 	status, body := http.StatusOK, "success"
-	defer func() {
-		r.Response.WriteStatus(status)
-		r.Response.WriteString(body)
-	}()
+	// WriteStatus 不带内容时会先写状态文字 ("OK"), 必须一次传入 body, 否则响应变成 "OKsuccess"
+	defer func() { r.Response.WriteStatus(status, body) }()
 
 	accountID := req.A
 	stats.IncrCounter(ctx, "cb:recv", accountID)
