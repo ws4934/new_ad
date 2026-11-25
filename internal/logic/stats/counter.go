@@ -90,6 +90,7 @@ func StartCounterWorker(ctx context.Context) {
 		defer ticker.Stop()
 		for range ticker.C {
 			FlushCounters(ctx)
+			FlushRequestLog(ctx)
 		}
 	}()
 }

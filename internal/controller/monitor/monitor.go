@@ -52,6 +52,7 @@ func (c *Controller) Receive(ctx context.Context, req *v1.MonitorReq) (res *v1.M
 		g.Log().Warningf(ctx, "account %d not found or disabled: %v", accountID, err)
 		return nil, nil
 	}
+	stats.RecordRequest(accountID, r.URL.RawQuery)
 
 	// 3. 加载平台 + 适配器
 	platform, err := cache.GetPlatform(ctx, acct.PlatformId)

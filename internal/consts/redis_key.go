@@ -19,6 +19,9 @@ func KeyStatsFakeOk(aid int, day string) string      { return fmt.Sprintf("stats
 func KeyStatsFakeErr(aid int, day string) string     { return fmt.Sprintf("stats:fake:err:%d:%s", aid, day) }
 func KeyStatsDrop(aid int, day string) string        { return fmt.Sprintf("stats:drop:%d:%s", aid, day) }
 
+// --- 每账户最近 50 条监测请求 (调试观察) ---
+func KeyReqLog(aid int) string { return fmt.Sprintf("reqlog:%d", aid) }
+
 // --- QPS (秒级, TTL 120s) ---
 func KeyQpsGlobal(sec int64) string { return fmt.Sprintf("qps:g:%d", sec) }
 
