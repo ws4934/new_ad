@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=12'
+import { api } from '../api.js?v=13'
 
 export default {
   setup() {
@@ -213,6 +213,25 @@ export default {
       } catch (e) { toast.show('复制失败: ' + e.message, 'error') }
     }
 
+    // --- 最近 50 条监测请求 (调试: 看宏有没有被替换) ---
+    const reqTarget = ref(null)
+    const reqList = ref([])
+    const reqLoading = ref(false)
+    const macroRe = /^(__[A-Z_0-9]+__|\{[A-Za-z_0-9]+\})$/
+    const loadRequests = async () => {
+      reqLoading.value = true
+      try {
+        const res = await api.accountRequests(reqTarget.value.id)
+        // 每行: "2006-01-02 15:04:05.000 <query>", 时间固定 23 位
+        reqList.value = (res.list || []).map(line => ({
+          time: line.slice(0, 23),
+          params: [...new URLSearchParams(line.slice(24))].map(([k, v]) => ({ k, v, macro: !v || macroRe.test(v) })),
+        }))
+      } catch (e) { toast.show('加载失败: ' + e.message, 'error') }
+      reqLoading.value = false
+    }
+    const openRequests = (a) => { reqTarget.value = a; reqList.value = []; loadRequests() }
+
     const remove = async () => {
       if (!deleteTarget.value || deleting.value) return
       deleting.value = true
@@ -234,6 +253,7 @@ export default {
       deleteTarget, deleting, remove, list, platforms, options,
       showCreate, createForm, createPlatformName, createPlatformTypes, create,
       showEdit, editForm, editPlatformTypes, openEdit, saveEdit,
+      reqTarget, reqList, reqLoading, loadRequests, openRequests,
       addMappingRow, removeMappingRow, toggleDebug, copyURL,
     }
   },
@@ -282,6 +302,9 @@ export default {
                   <button class="btn btn-xs btn-ghost" @click="copyURL(a.id)" title="复制监测链接">
                     <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                   </button>
+                  <button class="btn btn-xs btn-ghost" @click="openRequests(a)" title="最近请求">
+                    <i data-lucide="list" class="w-3.5 h-3.5"></i>
+                  </button>
                   <button class="btn btn-xs btn-ghost" @click="openEdit(a)" title="编辑">
                     <i data-lucide="edit" class="w-3.5 h-3.5"></i>
                   </button>
@@ -295,6 +318,27 @@ export default {
           </table>
         </div>
       </div>
+
+      <!-- 最近监测请求 -->
+      <Modal :show="!!reqTarget" :title="'最近请求 · ' + (reqTarget?.name || '') + ' (最多 50 条, 最新在前)'" width="max-w-5xl"
+        confirm-text="刷新" :confirm-disabled="reqLoading" @close="reqTarget=null" @confirm="loadRequests">
+        <div class="text-xs opacity-70 mb-2">黄色 = 宏未被平台替换 (或为空); 只记录已启用账户的请求, 写入有约 1 秒延迟</div>
+        <div class="overflow-y-auto max-h-[60vh]">
+          <table class="table table-xs">
+            <thead><tr><th class="w-44">时间</th><th>参数</th></tr></thead>
+            <tbody>
+              <tr v-for="(r, i) in reqList" :key="i" class="align-top">
+                <td class="font-mono whitespace-nowrap">{{ r.time }}</td>
+                <td class="font-mono break-all">
+                  <span v-for="p in r.params" :key="p.k" class="inline-block mr-3"
+                    :class="p.macro ? 'text-warning' : ''">{{ p.k }}=<b>{{ p.v }}</b></span>
+                </td>
+              </tr>
+              <tr v-if="!reqList.length"><td colspan="2" class="text-center text-gray-400">{{ reqLoading ? '加载中…' : '暂无请求' }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </Modal>
 
       <!-- 新增账户 -->
       <Modal :show="showCreate" title="新增账户" width="max-w-3xl" @close="showCreate=false" @confirm="create">

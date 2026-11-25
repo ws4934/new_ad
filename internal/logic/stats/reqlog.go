@@ -33,6 +33,15 @@ func RecordRequest(accountID int, rawQuery string) {
 	reqMu.Unlock()
 }
 
+// RequestLog 读取账户最近的监测请求 (最新在前)
+func RequestLog(ctx context.Context, accountID int) ([]string, error) {
+	vs, err := g.Redis().LRange(ctx, consts.KeyReqLog(accountID), 0, -1)
+	if err != nil {
+		return nil, err
+	}
+	return vs.Strings(), nil
+}
+
 // FlushRequestLog 按时间顺序 LPUSH (表头为最新), 再裁到 reqLogMax 条
 func FlushRequestLog(ctx context.Context) {
 	reqMu.Lock()

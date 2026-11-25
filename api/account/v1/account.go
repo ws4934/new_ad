@@ -92,6 +92,17 @@ type AccountMonitorURLRes struct {
 	URL string `json:"url"`
 }
 
+// --- 最近监测请求 (调试观察) ---
+
+type AccountRequestsReq struct {
+	g.Meta `path:"/api/v2/accounts/{id}/requests" tags:"Account" method:"get" summary:"最近 50 条监测请求"`
+	Id     int `json:"id" v:"required|min:1"`
+}
+
+type AccountRequestsRes struct {
+	List []string `json:"list"` // "2006-01-02 15:04:05.000 <原始 query>", 最新在前
+}
+
 // AccountDeleteReq 删除账户。
 type AccountDeleteReq struct {
 	g.Meta `path:"/api/v2/accounts/{id}" tags:"Account" method:"delete" summary:"删除账户"`

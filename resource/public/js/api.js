@@ -60,6 +60,7 @@ export const api = {
   accountCreate: (body) => request('/api/v2/accounts', { method: 'POST', body }),
   accountUpdate: (id, body) => request(`/api/v2/accounts/${id}`, { method: 'PUT', body }),
   accountMonitorURL: (id) => request(`/api/v2/accounts/${id}/monitor-url`),
+  accountRequests: (id) => request(`/api/v2/accounts/${id}/requests`),
 
   // 映射
   mappingList: (accountId) => request('/api/v2/mappings', { query: { accountId } }),

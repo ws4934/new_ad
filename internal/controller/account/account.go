@@ -5,6 +5,7 @@ import (
 
 	v1 "ad-monitor/api/account/v1"
 	"ad-monitor/internal/logic/biz"
+	"ad-monitor/internal/logic/stats"
 
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -50,6 +51,15 @@ func (c *Controller) MonitorURL(ctx context.Context, req *v1.AccountMonitorURLRe
 		return nil, err
 	}
 	return &v1.AccountMonitorURLRes{URL: url}, nil
+}
+
+// Requests 最近 50 条监测请求
+func (c *Controller) Requests(ctx context.Context, req *v1.AccountRequestsReq) (*v1.AccountRequestsRes, error) {
+	list, err := stats.RequestLog(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.AccountRequestsRes{List: list}, nil
 }
 
 func (c *Controller) Delete(ctx context.Context, req *v1.AccountDeleteReq) (*v1.AccountDeleteRes, error) {
