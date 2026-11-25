@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
-	"time"
 
 	"ad-monitor/internal/consts"
 	"ad-monitor/internal/logic/adapter"
@@ -48,7 +47,7 @@ func (a *Adapter) ReportConversion(ctx context.Context, p *bo.CallbackPayload) (
 	body := map[string]any{
 		"click_id":   p.ClickID,
 		"event_type": gconv.Int(p.MappedType),
-		"timestamp":  time.Now().UnixMilli(), // 毫秒
+		"timestamp":  p.ConvTS, // 事件发生时间(毫秒), 重试不变
 		"platform":   gconv.String(creds["platform"]),
 		"scene":      "700", // 固定 唤端项目
 	}

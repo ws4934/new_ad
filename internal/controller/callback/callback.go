@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	v1 "ad-monitor/api/callback/v1"
 	"ad-monitor/internal/consts"
@@ -110,6 +111,7 @@ func (c *Controller) Receive(ctx context.Context, req *v1.CallbackReq) (res *v1.
 		TaolianType: req.TransformType,
 		MappedType:  mappedType,
 		Devices:     devices,
+		TS:          time.Now().UnixMilli(),
 	}); err != nil {
 		g.Log().Warningf(ctx, "enqueue callback failed: %v", err)
 	}

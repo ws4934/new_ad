@@ -89,6 +89,19 @@ func isMacroValue(v string) bool {
 	return false
 }
 
+// taolianOS 各平台系统宏统一为淘联枚举 (0 Android / 1 iOS)。
+// 微博 __OS__ / 小红书 __OS__ 是 0/1, 微博 {devicetype} 是 android/ios;
+// 小红书鸿蒙=2 与淘联 2=wp 冲突, 其他值一律不传
+func taolianOS(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "0", "android":
+		return "0"
+	case "1", "ios":
+		return "1"
+	}
+	return ""
+}
+
 // TaolianReportReq 淘联上报请求参数
 type TaolianReportReq struct {
 	Channel      string
@@ -165,7 +178,13 @@ func (r *Reporter) Report(ctx context.Context, req *TaolianReportReq) (*TaolianR
 	setIf("imeiMd5", req.Devices[consts.FieldIMEIMD5])
 	setIf("idfaMd5", req.Devices[consts.FieldIDFAMD5])
 	setIf("oaidMd5", req.Devices[consts.FieldOAIDMD5])
-	setIf("androidid", req.Devices[consts.FieldAndroidID])
+	// 微博 androidid_MD5 是 md5 值, 对应淘联 androididMd5 (不是原值 androidid)
+	setIf("androididMd5", req.Devices[consts.FieldAndroidID])
+
+	// 广告投放字段: 淘联文档要求务必填写, 以免转化归因遗漏
+	setIf("adid", req.Devices[consts.FieldAdID])
+	setIf("cid", req.Devices[consts.FieldCreativeID])
+	setIf("os", taolianOS(req.Devices[consts.FieldOS]))
 
 	// 3. CAID 多版本拆分 (版本号自动从值前缀解析, 不依赖配置)
 	if raw := req.Devices[consts.FieldCAIDMD5]; raw != "" && !isMacroValue(raw) {

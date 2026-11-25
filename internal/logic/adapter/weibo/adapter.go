@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"ad-monitor/internal/consts"
 	"ad-monitor/internal/logic/adapter"
@@ -53,7 +52,8 @@ func (a *Adapter) ReportConversion(ctx context.Context, p *bo.CallbackPayload) (
 	params.Set("company", company)
 	params.Set("IMP", p.ClickID)
 	params.Set("action_type", p.MappedType)
-	params.Set("active_time", strconv.FormatInt(time.Now().Unix(), 10))
+	// 文档: 重传时 active_time 必须完全一致, 否则按多次激活处理
+	params.Set("active_time", strconv.FormatInt(p.ConvTS/1000, 10))
 
 	// 归因设备号 (只填值存在且非宏的)
 	setIf := func(k, v string) {

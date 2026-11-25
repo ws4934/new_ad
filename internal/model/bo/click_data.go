@@ -12,6 +12,7 @@ type CallbackPayload struct {
 	Devices     map[consts.InternalField]string // 归因设备号 (已过滤宏)
 	MappedType  string                          // 映射后的 action_type / event_type
 	TaolianType int                             // 原始 transformType
+	ConvTS      int64                           // 转化时间(毫秒), 同一任务重试时不变
 	IsFake      bool
 }
 

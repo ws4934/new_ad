@@ -1,6 +1,10 @@
 package reporter_test
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -120,5 +124,62 @@ func TestReporter_CaidInURL(t *testing.T) {
 	expectedCBPrefix := "https://cb.example.com/cb?a=1&p=weibo&c="
 	if !strings.Contains(expectedCBPrefix, "cb?a=1") {
 		t.Error("callback URL format check failed")
+	}
+}
+
+// TestReport_Params 起本地假淘联, 校验真实发出的表单参数
+func TestReport_Params(t *testing.T) {
+	var form url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		form = r.PostForm
+		_, _ = w.Write([]byte("success"))
+	}))
+	defer srv.Close()
+
+	mark := "4_reallog_mark_ad:8|4_11111111111111111111"
+	rep := reporter.NewReporter(srv.URL, "https://cb.example.com")
+	res, err := rep.Report(context.Background(), &reporter.TaolianReportReq{
+		Channel: "ch", TaskID: "t", TbkID: "mm_1_2_3", SourcePack: 1,
+		AccountID: 7, PlatformName: "weibo_direct", ClickID: mark, ActionTime: 1000,
+		Devices: map[consts.InternalField]string{
+			consts.FieldIMEIMD5:      "IMEI",
+			consts.FieldAndroidID:    "ANDROIDMD5",
+			consts.FieldAdID:         "123",
+			consts.FieldCreativeID:   "456",
+			consts.FieldOS:           "ios",
+			consts.FieldTS:           "1700000000000",
+			consts.FieldAdvertiserID: "", // 空值不传
+		},
+	})
+	if err != nil || !res.Success {
+		t.Fatalf("report: %v %+v", err, res)
+	}
+	want := map[string]string{
+		"imeiMd5": "IMEI", "androididMd5": "ANDROIDMD5", "adid": "123", "cid": "456", "os": "1",
+	}
+	for k, v := range want {
+		if form.Get(k) != v {
+			t.Errorf("%s = %q, want %q", k, form.Get(k), v)
+		}
+	}
+	if form.Has("androidid") {
+		t.Error("md5 must not go to raw androidid")
+	}
+	// markid 含 : 和 |, 经 callbackUrl 往返后应原样拿回 (淘联解码一次后请求 /cb, 框架再解码一次)
+	cb, err := url.Parse(form.Get("callbackUrl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cb.Query().Get("c"); got != mark {
+		t.Errorf("callback c = %q, want %q", got, mark)
+	}
+}
+
+func TestTaolianOS(t *testing.T) {
+	for in, want := range map[string]string{"0": "0", "1": "1", "android": "0", "iOS": "1", "2": "", "": "", "__OS__": ""} {
+		if got := reporter.TaolianOS(in); got != want {
+			t.Errorf("TaolianOS(%q) = %q, want %q", in, got, want)
+		}
 	}
 }

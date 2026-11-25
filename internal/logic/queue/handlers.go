@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"ad-monitor/internal/logic/adapter"
 	"ad-monitor/internal/logic/cache"
@@ -96,6 +97,7 @@ func HandleCallbackReport(ctx context.Context, t *asynq.Task) error {
 		Devices:     p.Devices,
 		MappedType:  p.MappedType,
 		TaolianType: p.TaolianType,
+		ConvTS:      convTS(p.TS),
 		IsFake:      false,
 	}
 	result, err := ad.ReportConversion(ctx, payload)
@@ -155,6 +157,7 @@ func HandleFakeReport(ctx context.Context, t *asynq.Task) error {
 		Devices:     p.Devices,
 		MappedType:  p.MappedType,
 		TaolianType: p.TaolianType,
+		ConvTS:      convTS(p.TS),
 		IsFake:      true,
 	}
 	result, err := ad.ReportConversion(ctx, payload)
@@ -175,6 +178,14 @@ func HandleFakeReport(ctx context.Context, t *asynq.Task) error {
 	}
 	stats.IncrCounter(ctx, "fake:ok", p.AccountID)
 	return nil
+}
+
+// convTS 升级前已入队的任务没有 ts, 退回当前时间
+func convTS(ts int64) int64 {
+	if ts > 0 {
+		return ts
+	}
+	return time.Now().UnixMilli()
 }
 
 // HandleArchiveDaily 每日归档 (阶段 8 完善)

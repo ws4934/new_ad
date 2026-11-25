@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"time"
 
 	v1 "ad-monitor/api/monitor/v1"
@@ -81,18 +82,24 @@ func (c *Controller) Receive(ctx context.Context, req *v1.MonitorReq) (res *v1.M
 	// 6. 设备号去重 + CSV (监测维度: {平台名}_{设备号类型}.csv)
 	devices := adapter.ExtractDeviceIDs(data)
 
-	// 6.1 透传非设备号字段 (如小红书 advertiser_id 从 __ADVERTISER_ID__ 宏获取)
+	// 6.1 透传非设备号字段, 经淘联 callbackUrl 的 d 参数带回回传 worker:
+	//   advertiser_id (小红书回传), ad_id/creative_id/os/androidid (上报淘联 adid/cid/os/androididMd5),
+	//   ts = 我方收到点击的时间(毫秒, 微博直达订单 click_time)
 	// 必须在启动 goroutine 之前写入, 避免对 devices map 的并发读写竞争
-	// advertiser_id 不在 DeviceFields 中, 不会参与去重, 只透传到回传 worker
-	if v, ok := data.Values[consts.FieldAdvertiserID]; ok && v != "" {
-		devices[consts.FieldAdvertiserID] = v
+	// 这些字段不在 DeviceFields 中, 不参与去重
+	for _, f := range passThroughFields {
+		if v := data.Values[f]; v != "" {
+			devices[f] = v
+		}
 	}
+	now := time.Now()
+	devices[consts.FieldTS] = strconv.FormatInt(now.UnixMilli(), 10)
 
 	go c.dedup.ProcessClickDevices(context.Background(), platform.Name, devices)
 
 	// 7. 联调 / 正常 / 虚假 三种模式分支
 	clickID := data.Values[consts.FieldClickID]
-	ts := time.Now().Unix()
+	ts := now.Unix()
 
 	if acct.DebugMode {
 		// === 联调模式 ===
@@ -128,6 +135,7 @@ func (c *Controller) Receive(ctx context.Context, req *v1.MonitorReq) (res *v1.M
 				TaolianType: m.TaolianType,
 				MappedType:  m.PlatformType,
 				Devices:     devices,
+				TS:          now.UnixMilli(),
 			})
 			g.Log().Debugf(ctx, "monitor: debug enqueue callback event=%s for account=%d", m.PlatformType, accountID)
 		}
@@ -160,12 +168,17 @@ func (c *Controller) Receive(ctx context.Context, req *v1.MonitorReq) (res *v1.M
 					Devices:     devices,
 					TaolianType: taolianType,
 					MappedType:  mappedType,
+					TS:          now.Add(delay).UnixMilli(),
 				}, delay)
 			}
 		}
 	}
 
 	return nil, nil
+}
+
+var passThroughFields = []consts.InternalField{
+	consts.FieldAdvertiserID, consts.FieldAdID, consts.FieldCreativeID, consts.FieldOS, consts.FieldAndroidID,
 }
 
 // hitRate 按概率 (1-100) 决定是否命中
