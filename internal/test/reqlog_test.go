@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -60,4 +61,22 @@ func TestIntegration_RequestLog(t *testing.T) {
 		t.Fatalf("monitor not logged: %q", v.String())
 	}
 	t.Logf("sample: %s", v.String())
+
+	// 淘联回调单独记录 (cblog), 不混进监测请求
+	cbKey := consts.KeyCbLog(real)
+	g.Redis().Del(ctx, cbKey)
+	defer g.Redis().Del(ctx, cbKey)
+	resp, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/cb?a=%d&p=weibo&c=REQLOG_CB&transformType=11", s.GetListenedPort(), real))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	stats.FlushRequestLog(ctx)
+	cb, _ := g.Redis().LIndex(ctx, cbKey, 0)
+	if !strings.HasSuffix(cb.String(), " a="+strconv.Itoa(real)+"&p=weibo&c=REQLOG_CB&transformType=11") {
+		t.Fatalf("callback not logged: %q", cb.String())
+	}
+	if n, _ := g.Redis().LLen(ctx, realKey); n != 1 {
+		t.Fatalf("callback leaked into monitor log: reqlog len=%d", n)
+	}
 }

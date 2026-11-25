@@ -97,8 +97,9 @@ type AccountMonitorURLRes struct {
 // --- 最近监测请求 (调试观察) ---
 
 type AccountRequestsReq struct {
-	g.Meta `path:"/api/v2/accounts/{id}/requests" tags:"Account" method:"get" summary:"最近 50 条监测请求"`
-	Id     int `json:"id" v:"required|min:1"`
+	g.Meta `path:"/api/v2/accounts/{id}/requests" tags:"Account" method:"get" summary:"最近 50 条监测请求 / 淘联回调"`
+	Id     int    `json:"id" v:"required|min:1"`
+	Type   string `json:"type" v:"in:monitor,callback"` // monitor (默认) / callback
 }
 
 type AccountRequestsRes struct {

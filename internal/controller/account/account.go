@@ -4,6 +4,7 @@ import (
 	"context"
 
 	v1 "ad-monitor/api/account/v1"
+	"ad-monitor/internal/consts"
 	"ad-monitor/internal/logic/biz"
 	"ad-monitor/internal/logic/stats"
 
@@ -55,7 +56,11 @@ func (c *Controller) MonitorURL(ctx context.Context, req *v1.AccountMonitorURLRe
 
 // Requests 最近 50 条监测请求
 func (c *Controller) Requests(ctx context.Context, req *v1.AccountRequestsReq) (*v1.AccountRequestsRes, error) {
-	list, err := stats.RequestLog(ctx, req.Id)
+	key := consts.KeyReqLog(req.Id)
+	if req.Type == "callback" {
+		key = consts.KeyCbLog(req.Id)
+	}
+	list, err := stats.RequestLog(ctx, key)
 	if err != nil {
 		return nil, err
 	}

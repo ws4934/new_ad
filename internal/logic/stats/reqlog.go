@@ -10,10 +10,11 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// 每账户最近 reqLogMax 条监测请求, 调试观察用 (宏有没有被替换、参数长什么样)。
+// 每账户最近 reqLogMax 条监测请求 (reqlog:<aid>) 和淘联回调 (cblog:<aid>), 调试观察用
+// (宏有没有被替换、淘联回调带了什么)。
 // 热路径只做进程内追加, 随计数器 worker 每秒落 Redis (一条脚本: LPUSH + LTRIM + 续期);
 // 写失败直接丢 (调试数据, 不重试)。7 天无请求自动过期, 删掉的账户不会残留。
-// 查看: redis-cli LRANGE reqlog:<账户ID> 0 -1  (表头最新)
+// 查看: redis-cli LRANGE reqlog:<账户ID> 0 -1 / cblog:<账户ID>  (表头最新)
 const (
 	reqLogMax = 50
 	reqLogTTL = 7 * 24 * 3600
@@ -27,24 +28,30 @@ return 1`
 
 var (
 	reqMu      sync.Mutex
-	reqPending = map[int][]any{}
+	reqPending = map[string][]any{} // redis key → 待落盘记录
 )
 
-// RecordRequest 记录一条监测请求 (每账户只攒最新 reqLogMax 条)
-func RecordRequest(accountID int, rawQuery string) {
+// RecordRequest 记录一条监测请求
+func RecordRequest(accountID int, rawQuery string) { record(consts.KeyReqLog(accountID), rawQuery) }
+
+// RecordCallback 记录一条淘联回调
+func RecordCallback(accountID int, rawQuery string) { record(consts.KeyCbLog(accountID), rawQuery) }
+
+// record 每个 key 只攒最新 reqLogMax 条
+func record(key, rawQuery string) {
 	line := time.Now().Format("2006-01-02 15:04:05.000") + " " + rawQuery
 	reqMu.Lock()
-	l := append(reqPending[accountID], line)
+	l := append(reqPending[key], line)
 	if len(l) > reqLogMax {
 		l = l[1:]
 	}
-	reqPending[accountID] = l
+	reqPending[key] = l
 	reqMu.Unlock()
 }
 
-// RequestLog 读取账户最近的监测请求 (最新在前)
-func RequestLog(ctx context.Context, accountID int) ([]string, error) {
-	vs, err := g.Redis().LRange(ctx, consts.KeyReqLog(accountID), 0, reqLogMax-1)
+// RequestLog 读取最近的记录 (最新在前), key 为 consts.KeyReqLog / consts.KeyCbLog
+func RequestLog(ctx context.Context, key string) ([]string, error) {
+	vs, err := g.Redis().LRange(ctx, key, 0, reqLogMax-1)
 	if err != nil {
 		return nil, err
 	}
@@ -59,11 +66,11 @@ func FlushRequestLog(ctx context.Context) {
 		return
 	}
 	batch := reqPending
-	reqPending = make(map[int][]any, len(batch))
+	reqPending = make(map[string][]any, len(batch))
 	reqMu.Unlock()
 
-	for aid, lines := range batch {
-		args := append([]any{reqLogLua, 1, consts.KeyReqLog(aid), reqLogMax, reqLogTTL}, lines...)
+	for key, lines := range batch {
+		args := append([]any{reqLogLua, 1, key, reqLogMax, reqLogTTL}, lines...)
 		_, _ = g.Redis().Do(ctx, "EVAL", args...)
 	}
 }

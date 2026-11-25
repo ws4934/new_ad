@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=20'
+import { api } from '../api.js?v=21'
 
 export default {
   setup() {
@@ -213,21 +213,26 @@ export default {
       } catch (e) { toast.show('复制失败: ' + e.message, 'error') }
     }
 
-    // --- 最近 50 条监测请求 (调试: 看宏有没有被替换) ---
+    // --- 最近 50 条监测请求 / 淘联回调 (调试: 看宏有没有被替换、回调带了什么) ---
     const reqTarget = ref(null)
+    const reqTab = ref('monitor') // monitor | callback
     const reqList = ref([])
     const reqLoading = ref(false)
     const macroRe = /^(__[A-Z_0-9]+__|\{[A-Za-z_0-9]+\})$/
+    // 回调的 d 参数是 base64url(JSON 设备号), 解码后显示
+    const decodeD = (v) => { try { return atob(v.replace(/-/g, '+').replace(/_/g, '/')) } catch { return v } }
     const loadRequests = async () => {
-      const id = reqTarget.value.id
+      const id = reqTarget.value.id, tab = reqTab.value
       reqLoading.value = true
       try {
-        const res = await api.accountRequests(id)
-        if (reqTarget.value?.id !== id) return // 已切到别的账户, 丢弃过期响应
+        const res = await api.accountRequests(id, tab)
+        if (reqTarget.value?.id !== id || reqTab.value !== tab) return // 已切到别的账户/tab, 丢弃过期响应
         // 每行: "2006-01-02 15:04:05.000 <query>", 时间固定 23 位
         reqList.value = (res.list || []).map(line => ({
           time: line.slice(0, 23),
-          params: [...new URLSearchParams(line.slice(24))].map(([k, v]) => ({ k, v, macro: !v || macroRe.test(v) })),
+          params: [...new URLSearchParams(line.slice(24))].map(([k, v]) => tab === 'callback' && k === 'd'
+            ? { k, v: decodeD(v), macro: false }
+            : { k, v, macro: !v || macroRe.test(v) }),
         }))
       } catch (e) {
         toast.show('加载失败: ' + e.message, 'error')
@@ -235,7 +240,8 @@ export default {
         reqLoading.value = false
       }
     }
-    const openRequests = (a) => { reqTarget.value = a; reqList.value = []; loadRequests() }
+    const openRequests = (a) => { reqTarget.value = a; reqTab.value = 'monitor'; reqList.value = []; loadRequests() }
+    const switchReqTab = (tab) => { if (reqTab.value === tab) return; reqTab.value = tab; reqList.value = []; loadRequests() }
 
     const showReset = ref(false)
     const resetting = ref(false)
@@ -271,7 +277,7 @@ export default {
       deleteTarget, deleting, remove, list, platforms, options,
       showCreate, createForm, createPlatformName, createPlatformTypes, create,
       showEdit, editForm, editPlatformTypes, openEdit, saveEdit,
-      reqTarget, reqList, reqLoading, loadRequests, openRequests,
+      reqTarget, reqTab, reqList, reqLoading, loadRequests, openRequests, switchReqTab,
       showReset, resetting, resetToday,
       addMappingRow, removeMappingRow, toggleDebug, copyURL,
     }
@@ -353,9 +359,13 @@ export default {
         </div>
       </div>
 
-      <!-- 最近监测请求 -->
+      <!-- 最近监测请求 / 淘联回调 -->
       <Modal :show="!!reqTarget" title="最近请求" width="max-w-5xl"
         confirm-text="刷新" :confirm-disabled="reqLoading" @close="reqTarget=null" @confirm="loadRequests">
+        <div role="tablist" class="tabs tabs-boxed w-fit mb-3">
+          <a role="tab" class="tab" :class="{ 'tab-active': reqTab === 'monitor' }" @click="switchReqTab('monitor')">监测请求</a>
+          <a role="tab" class="tab" :class="{ 'tab-active': reqTab === 'callback' }" @click="switchReqTab('callback')">淘联回调</a>
+        </div>
         <div class="overflow-y-auto max-h-[60vh]">
           <table class="table table-xs">
             <thead><tr><th class="w-44">时间</th><th>参数</th></tr></thead>
@@ -367,7 +377,7 @@ export default {
                     :class="p.macro ? 'text-warning' : ''">{{ p.k }}=<b>{{ p.v }}</b></span>
                 </td>
               </tr>
-              <tr v-if="!reqList.length"><td colspan="2" class="text-center text-gray-400">{{ reqLoading ? '加载中…' : '暂无请求' }}</td></tr>
+              <tr v-if="!reqList.length"><td colspan="2" class="text-center text-gray-400">{{ reqLoading ? '加载中…' : (reqTab === 'callback' ? '暂无回调' : '暂无请求') }}</td></tr>
             </tbody>
           </table>
         </div>

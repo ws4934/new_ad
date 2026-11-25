@@ -77,10 +77,11 @@ func TestIntegration_ManagementDelete(t *testing.T) {
 	pid, aid := fixture()
 	otherPID, otherAID := fixture()
 	_, _ = g.Redis().LPush(ctx, consts.KeyReqLog(aid), "x")
+	_, _ = g.Redis().LPush(ctx, consts.KeyCbLog(aid), "x")
 	check(biz.AccountDelete(ctx, aid))
 	check(biz.AccountDelete(ctx, aid))
-	if n, _ := g.Redis().Exists(ctx, consts.KeyReqLog(aid)); n != 0 {
-		t.Fatal("request log remains after account delete")
+	if n, _ := g.Redis().Exists(ctx, consts.KeyReqLog(aid), consts.KeyCbLog(aid)); n != 0 {
+		t.Fatal("request/callback log remains after account delete")
 	}
 	count(dao.AdAccount.Ctx(ctx).WherePri(aid), 0)
 	count(dao.ActionMapping.Ctx(ctx).Where("account_id", aid), 0)

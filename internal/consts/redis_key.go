@@ -27,6 +27,7 @@ func KeyStatsCbDrop(aid int, day string) string      { return fmt.Sprintf("stats
 
 // --- 每账户最近 50 条监测请求 (调试观察) ---
 func KeyReqLog(aid int) string { return fmt.Sprintf("reqlog:%d", aid) }
+func KeyCbLog(aid int) string  { return fmt.Sprintf("cblog:%d", aid) } // 最近 50 条淘联回调
 
 // --- QPS (秒级, TTL 120s) ---
 func KeyQpsGlobal(sec int64) string { return fmt.Sprintf("qps:g:%d", sec) }

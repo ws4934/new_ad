@@ -44,6 +44,7 @@ func (c *Controller) Receive(ctx context.Context, req *v1.CallbackReq) (res *v1.
 		g.Log().Warningf(ctx, "callback: account %d not found or disabled", accountID)
 		return nil, nil
 	}
+	stats.RecordCallback(accountID, r.URL.RawQuery)
 
 	// 2. 查找行为映射
 	mappings, err := cache.GetMappings(ctx, accountID)

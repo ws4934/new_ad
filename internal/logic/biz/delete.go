@@ -91,9 +91,9 @@ func PlatformDelete(ctx context.Context, id int) error {
 }
 
 func clearDeletedCaches(ctx context.Context, accountIDs []int, platformID int) error {
-	keys := make([]string, 0, len(accountIDs)*3+1)
+	keys := make([]string, 0, len(accountIDs)*4+1)
 	for _, id := range accountIDs {
-		keys = append(keys, consts.KeyCacheAccount(id), consts.KeyCacheMappings(id), consts.KeyReqLog(id))
+		keys = append(keys, consts.KeyCacheAccount(id), consts.KeyCacheMappings(id), consts.KeyReqLog(id), consts.KeyCbLog(id))
 	}
 	if platformID > 0 {
 		keys = append(keys, consts.KeyCachePlatform(platformID))
