@@ -251,7 +251,8 @@ func (w *CSVWriter) ListFiles(platform, field, date string) ([]string, error) {
 				continue
 			}
 		}
-		if field != "" && !strings.Contains(name, "_"+field) {
+		// 设备号类型也精确匹配: caid 不能混进 caid_md5
+		if field != "" && !strings.HasSuffix(prefixOfFile(name), "_"+field) {
 			continue
 		}
 		out = append(out, name)

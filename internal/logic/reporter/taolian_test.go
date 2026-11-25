@@ -155,8 +155,8 @@ func TestReport_Params(t *testing.T) {
 	if err != nil || !res.Success {
 		t.Fatalf("report: %v %+v", err, res)
 	}
-	want := map[string]string{
-		"imeiMd5": "IMEI", "androididMd5": "ANDROIDMD5", "adid": "123", "cid": "456", "os": "1",
+	want := map[string]string{ // md5 一律转小写
+		"imeiMd5": "imei", "androididMd5": "androidmd5", "adid": "123", "cid": "456", "os": "1",
 	}
 	for k, v := range want {
 		if form.Get(k) != v {
@@ -182,4 +182,47 @@ func TestTaolianOS(t *testing.T) {
 			t.Errorf("TaolianOS(%q) = %q, want %q", in, got, want)
 		}
 	}
+}
+
+// TestReport_Caid CAID: 原值 → caid, md5 → caidMd5, 同版本对齐到同一位, 一律小写
+func TestReport_Caid(t *testing.T) {
+	var form url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		form = r.PostForm
+		_, _ = w.Write([]byte("success"))
+	}))
+	defer srv.Close()
+	report := func(dev map[consts.InternalField]string) url.Values {
+		t.Helper()
+		_, err := reporter.NewReporter(srv.URL, "https://cb.example.com").Report(context.Background(), &reporter.TaolianReportReq{
+			AccountID: 1, PlatformName: "weibo", ClickID: "c", ActionTime: 1, Devices: dev,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return form
+	}
+	check := func(name string, f url.Values, want map[string]string) {
+		t.Helper()
+		for _, k := range []string{"caid", "caidMd5", "caidVersion", "caid2", "caid2Md5", "caid2Version"} {
+			if f.Get(k) != want[k] {
+				t.Errorf("%s: %s = %q, want %q", name, k, f.Get(k), want[k])
+			}
+		}
+	}
+
+	// 微博 GX_CAID: 原值 (大写也转小写), 不能再填进 md5 字段
+	check("weibo raw", report(map[consts.InternalField]string{consts.FieldCAID: "20250325_AAA,20230330_BBB"}),
+		map[string]string{"caid": "aaa", "caidVersion": "20250325", "caid2": "bbb", "caid2Version": "20230330"})
+
+	// 小红书原值 + md5, md5 的版本顺序与原值相反: 按版本号对齐
+	check("xhs raw+md5", report(map[consts.InternalField]string{
+		consts.FieldCAID:    "20250325_raw1,20230330_raw2",
+		consts.FieldCAIDMD5: "20230330_MD52,20250325_MD51",
+	}), map[string]string{"caid": "raw1", "caidMd5": "md51", "caidVersion": "20250325", "caid2": "raw2", "caid2Md5": "md52", "caid2Version": "20230330"})
+
+	// 只有 md5 (小红书只开了 __CAID_MD5__), 未替换的原值宏忽略
+	check("xhs md5 only", report(map[consts.InternalField]string{consts.FieldCAID: "__CAID__", consts.FieldCAIDMD5: "20250325_m1"}),
+		map[string]string{"caidMd5": "m1", "caidVersion": "20250325"})
 }

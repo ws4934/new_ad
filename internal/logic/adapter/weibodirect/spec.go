@@ -20,8 +20,8 @@ var Spec = adapter.MacroSpec{
 		{Name: "imei_md5", Macro: "__IMEI__", Internal: consts.FieldIMEIMD5},
 		{Name: "oaid_md5", Macro: "__OAID_MD5__", Internal: consts.FieldOAIDMD5},
 		{Name: "androidid_MD5", Macro: "__ANDROIDID__", Internal: consts.FieldAndroidID},
-		{Name: "GX_CAID", Macro: "__CAID__", Internal: consts.FieldCAIDMD5},
-		{Name: "devicetype", Macro: "__OS__", Internal: consts.FieldOS}, // iOS=1, android=0
+		{Name: "GX_CAID", Macro: "__CAID__", Internal: consts.FieldCAID}, // 中广协 caid 原值
+		{Name: "devicetype", Macro: "__OS__", Internal: consts.FieldOS},  // iOS=1, android=0
 		{Name: "ad_id", Macro: "__AID__", Internal: consts.FieldAdID},
 		{Name: "creative_id", Macro: "__CID__", Internal: consts.FieldCreativeID},
 	},

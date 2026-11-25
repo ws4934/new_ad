@@ -64,7 +64,12 @@ func (a *Adapter) ReportConversion(ctx context.Context, p *bo.CallbackPayload) (
 	setIf("imei", p.Devices[consts.FieldIMEIMD5])
 	setIf("oaid", p.Devices[consts.FieldOAIDMD5])
 	setIf("idfa", p.Devices[consts.FieldIDFAMD5])
-	setIf("GX_CAID", p.Devices[consts.FieldCAIDMD5])
+	// 升级前的点击, 回调 d 参数里原值还放在 caid_md5 键下
+	gxCaid := p.Devices[consts.FieldCAID]
+	if gxCaid == "" {
+		gxCaid = p.Devices[consts.FieldCAIDMD5]
+	}
+	setIf("GX_CAID", gxCaid)
 	setIf("ip", p.Devices[consts.FieldIP])
 	setIf("ua", p.Devices[consts.FieldUA])
 

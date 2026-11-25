@@ -1,5 +1,5 @@
 import { ref, inject, onMounted } from 'vue'
-import { api, getToken } from '../api.js?v=19'
+import { api, getToken } from '../api.js?v=20'
 
 export default {
   setup() {
@@ -75,6 +75,7 @@ export default {
               <option value="idfa_md5">idfa_md5</option>
               <option value="oaid_md5">oaid_md5</option>
               <option value="caid_md5">caid_md5</option>
+              <option value="caid">caid</option>
             </select>
             <button class="btn btn-primary btn-sm" @click="refresh">
               <i data-lucide="search" class="w-4 h-4"></i> 查询

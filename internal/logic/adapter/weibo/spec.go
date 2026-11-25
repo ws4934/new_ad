@@ -16,7 +16,7 @@ var Spec = adapter.MacroSpec{
 		{Name: "imei_md5", Macro: "{imei_MD5}", Internal: consts.FieldIMEIMD5},
 		{Name: "oaid_md5", Macro: "{oaid_MD5}", Internal: consts.FieldOAIDMD5},
 		{Name: "androidid_MD5", Macro: "{androidid_MD5}", Internal: consts.FieldAndroidID},
-		{Name: "GX_CAID", Macro: "{GX_CAID}", Internal: consts.FieldCAIDMD5}, // 微博 CAID 只给 md5
+		{Name: "GX_CAID", Macro: "{GX_CAID}", Internal: consts.FieldCAID}, // 中广协 caid 原值 (不是 md5), 见文档更新日志 2025/6/30
 		{Name: "ip", Macro: "{ip}", Internal: consts.FieldIP},
 		{Name: "ua", Macro: "{ua}", Internal: consts.FieldUA},
 		{Name: "clicktime", Macro: "{clicktime}", Internal: consts.FieldTS},

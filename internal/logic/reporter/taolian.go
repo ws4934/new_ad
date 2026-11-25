@@ -27,9 +27,9 @@ type CaidItem struct {
 
 // SplitCaid 解析 caid 字符串为带版本的多条记录。
 //
-// 广告平台 (微博/小红书) 给我方的 CAID 格式统一为:
+// 广告平台 (微博/小红书) 给我方的 CAID 格式统一为 (原值或 md5 都是这个格式):
 //
-//	"20250325_md5xxx,20230330_md5yyy"
+//	"20250325_xxx,20230330_yyy"
 //
 // 版本号就是值前面的 8 位数字 + 下划线前缀。我方完全按此自解析, 不依赖任何
 // 后台配置。不符合 "8位数字+下划线" 前缀的条目直接丢弃 (而不是编一个默认版本号
@@ -102,6 +102,49 @@ func taolianOS(v string) string {
 		return "3"
 	}
 	return ""
+}
+
+// setCaid CAID 原值 (微博 GX_CAID / 小红书 __CAID__) → caid/caid2,
+// md5 (小红书 __CAID_MD5__) → caidMd5/caid2Md5。淘联只有两个版本位, 同一位的原值和
+// md5 共用 caidVersion/caid2Version, 所以按版本号对齐; 版本顺序以平台给的先后为准。一律小写 (淘联要求)
+func setCaid(params url.Values, raw, md5 string) {
+	type slot struct{ raw, md5 string }
+	var versions []string
+	byVer := map[string]*slot{}
+	add := func(list string, isMD5 bool) {
+		if isMacroValue(list) {
+			return
+		}
+		for _, c := range SplitCaid(list) {
+			s := byVer[c.Version]
+			if s == nil {
+				s = &slot{}
+				byVer[c.Version] = s
+				versions = append(versions, c.Version)
+			}
+			if isMD5 {
+				s.md5 = strings.ToLower(c.Value)
+			} else {
+				s.raw = strings.ToLower(c.Value)
+			}
+		}
+	}
+	add(raw, false)
+	add(md5, true)
+	names := [][3]string{{"caid", "caidMd5", "caidVersion"}, {"caid2", "caid2Md5", "caid2Version"}}
+	for i, ver := range versions {
+		if i == len(names) {
+			break
+		}
+		s := byVer[ver]
+		if s.raw != "" {
+			params.Set(names[i][0], s.raw)
+		}
+		if s.md5 != "" {
+			params.Set(names[i][1], s.md5)
+		}
+		params.Set(names[i][2], ver)
+	}
 }
 
 // TaolianReportReq 淘联上报请求参数
@@ -177,11 +220,13 @@ func (r *Reporter) Report(ctx context.Context, req *TaolianReportReq) (*TaolianR
 			params.Set(k, v)
 		}
 	}
-	setIf("imeiMd5", req.Devices[consts.FieldIMEIMD5])
-	setIf("idfaMd5", req.Devices[consts.FieldIDFAMD5])
-	setIf("oaidMd5", req.Devices[consts.FieldOAIDMD5])
+	// md5 统一小写: 微博给的是大写 md5 (文档 "计算 MD5 再转大写"), md5sum 惯例和淘联 caid 要求都是小写
+	setMd5 := func(k, v string) { setIf(k, strings.ToLower(v)) }
+	setMd5("imeiMd5", req.Devices[consts.FieldIMEIMD5])
+	setMd5("idfaMd5", req.Devices[consts.FieldIDFAMD5])
+	setMd5("oaidMd5", req.Devices[consts.FieldOAIDMD5])
 	// 微博 androidid_MD5 是 md5 值, 对应淘联 androididMd5 (不是原值 androidid)
-	setIf("androididMd5", req.Devices[consts.FieldAndroidID])
+	setMd5("androididMd5", req.Devices[consts.FieldAndroidID])
 
 	// 广告投放字段: 淘联文档要求务必填写, 以免转化归因遗漏
 	setIf("adid", req.Devices[consts.FieldAdID])
@@ -189,17 +234,7 @@ func (r *Reporter) Report(ctx context.Context, req *TaolianReportReq) (*TaolianR
 	setIf("os", taolianOS(req.Devices[consts.FieldOS]))
 
 	// 3. CAID 多版本拆分 (版本号自动从值前缀解析, 不依赖配置)
-	if raw := req.Devices[consts.FieldCAIDMD5]; raw != "" && !isMacroValue(raw) {
-		caids := SplitCaid(raw)
-		if len(caids) >= 1 {
-			params.Set("caidMd5", caids[0].Value)
-			params.Set("caidVersion", caids[0].Version)
-		}
-		if len(caids) >= 2 {
-			params.Set("caid2Md5", caids[1].Value)
-			params.Set("caid2Version", caids[1].Version)
-		}
-	}
+	setCaid(params, req.Devices[consts.FieldCAID], req.Devices[consts.FieldCAIDMD5])
 
 	// 4. 调用淘联 (POST form, 对接文档支持 GET/POST)
 	g.Log().Debugf(ctx, "taolian report POST: %s params=%s", r.BaseURL, params.Encode())
