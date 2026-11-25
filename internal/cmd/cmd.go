@@ -41,9 +41,13 @@ var (
 
 			// 0.1 直发监控建表 (幂等) + 每 5 秒扫描到期配置 (各配置按自身间隔查询)
 			issue.EnsureSchema(ctx)
-			// 已有部署补齐微博直达平台 (init.sql 只在 PG 首次初始化时运行)
-			if _, err := g.DB().Exec(ctx, `INSERT INTO ad_platform (name, display_name, config) VALUES
-('weibo_direct', '微博直达', '{"reportUrl": "https://api.biz.weibo.com/v4/track/activate"}') ON CONFLICT (name) DO NOTHING`); err != nil {
+			// 已有部署补齐微博直达平台 (init.sql 只在 PG 首次初始化时运行)。
+			// 只补一次 (app_setting 记标记), 之后在平台管理里删掉不会被重启加回来
+			if _, err := g.DB().Exec(ctx, `WITH m AS (
+  INSERT INTO app_setting (key, value) VALUES ('seed:weibo_direct', 'true') ON CONFLICT (key) DO NOTHING RETURNING 1
+) INSERT INTO ad_platform (name, display_name, config)
+SELECT 'weibo_direct', '微博直达', '{"reportUrl": "https://api.biz.weibo.com/v4/track/activate"}' FROM m
+ON CONFLICT (name) DO NOTHING`); err != nil {
 				g.Log().Warningf(ctx, "seed weibo_direct platform: %v", err)
 			}
 			_, _ = gcron.AddSingleton(ctx, "*/5 * * * * *", issue.Tick, "issue-monitor")

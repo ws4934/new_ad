@@ -3,11 +3,15 @@ package weibodirect
 import (
 	"context"
 	"encoding/json"
-	"math/rand"
+	"fmt"
+	"hash/fnv"
+	"math/rand/v2"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
+	"ad-monitor/internal/consts"
 	"ad-monitor/internal/logic/adapter"
 	"ad-monitor/internal/logic/cache"
 	"ad-monitor/internal/logic/httpx"
@@ -44,14 +48,8 @@ func (a *Adapter) ReportConversion(ctx context.Context, p *bo.CallbackPayload) (
 
 	var creds credentials
 	_ = json.Unmarshal([]byte(p.Account.Credentials), &creds)
-	cbBase, _ := g.Cfg().Get(ctx, "adMonitor.callbackBaseUrl")
-	host := ""
-	if u, err := url.Parse(cbBase.String()); err == nil {
-		host = u.Hostname()
-	}
 
-	now := time.Now()
-	fullURL := reportURL + "?" + buildQuery(p.ClickID, p.MappedType, host, creds, now, rand.New(rand.NewSource(now.UnixNano())))
+	fullURL := reportURL + "?" + buildQuery(p, cbHost(), creds, time.Now())
 	g.Log().Debugf(ctx, "weibo_direct report: %s", fullURL)
 
 	resp, err := httpx.New().Get(ctx, fullURL)
@@ -83,24 +81,43 @@ type credentials struct {
 	Order             OrderConfig `json:"order"`
 }
 
-// buildQuery time 为调用接口时的毫秒时间戳; mark_id / item_order_pay 由 Encode
+// cbHost 回传参数 host = 我方回调域名 (配置不会热变, 只解析一次)
+var cbHost = sync.OnceValue(func() string {
+	v, _ := g.Cfg().Get(context.Background(), "adMonitor.callbackBaseUrl")
+	u, err := url.Parse(v.String())
+	if err != nil {
+		return ""
+	}
+	return u.Hostname()
+})
+
+// buildQuery time 为调用接口时的毫秒时间戳 (文档要求); mark_id / item_order_pay 由 Encode
 // 做一次 urlencode, 微博服务端会 decode 一次 (多次 encode 会报 mark_id may be expired)
-func buildQuery(markID, behavior, host string, c credentials, now time.Time, r *rand.Rand) string {
+func buildQuery(p *bo.CallbackPayload, host string, c credentials, now time.Time) string {
 	v := url.Values{}
 	v.Set("time", strconv.FormatInt(now.UnixMilli(), 10))
-	v.Set("behavior", behavior)
-	v.Set("mark_id", markID)
+	v.Set("behavior", p.MappedType)
+	v.Set("mark_id", p.ClickID)
 	if host != "" {
 		v.Set("host", host)
 	}
 	if c.TechnicalProvider != "" {
 		v.Set("technical_provider", c.TechnicalProvider)
 	}
-	if behavior == behaviorPayOrder {
-		b, _ := json.Marshal(genOrder(c.Order, c.ServiceProvider, now, r))
+	if p.MappedType == behaviorPayOrder {
+		// click_time 用监测入口收到点击的时间 (经淘联 callbackUrl 透传回来)
+		clickMs, _ := strconv.ParseInt(p.Devices[consts.FieldTS], 10, 64)
+		b, _ := json.Marshal(genOrder(c.Order, c.ServiceProvider, clickMs, p.ConvTS, orderRand(p)))
 		v.Set("item_order_pay", string(b))
 	}
 	return v.Encode()
+}
+
+// orderRand 同一转化 (点击+行为+转化时间) 的种子固定, 重试时订单号等不变, 避免微博重复计数
+func orderRand(p *bo.CallbackPayload) *rand.Rand {
+	h := fnv.New64a()
+	fmt.Fprintf(h, "%s|%s|%d", p.ClickID, p.MappedType, p.ConvTS)
+	return rand.New(rand.NewPCG(h.Sum64(), 0))
 }
 
 // isOK 成功应答: {"code":0,"message":"OK"}

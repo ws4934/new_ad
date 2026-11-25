@@ -3,7 +3,7 @@ package weibodirect
 import (
 	"fmt"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"strconv"
 	"time"
 )
@@ -36,13 +36,15 @@ type itemOrderPay struct {
 }
 
 // genOrder 按配置随机生成一笔已付款订单; 未配置项用默认值
-// 时间线: 点击 → (1~30 分钟) 下单 → (10~120 秒) 付款点击 → (1~10 秒) 付款 = now
-func genOrder(cfg OrderConfig, serviceProvider string, now time.Time, r *rand.Rand) itemOrderPay {
+// 时间线: 点击 → (1~30 分钟) 下单 → (10~120 秒) 付款点击 → (1~10 秒) 付款 = 转化时间 payMs。
+// 有真实点击时间 clickMs 时点击用真实值, 下单/付款点击压缩在点击与付款之间;
+// 联调模式点击即转化 (clickMs == payMs) 时四个时间相同, 与文档示例一致
+func genOrder(cfg OrderConfig, serviceProvider string, clickMs, payMs int64, r *rand.Rand) itemOrderPay {
 	pick := func(list []string, def string) string {
 		if len(list) == 0 {
 			return def
 		}
-		return list[r.Intn(len(list))]
+		return list[r.IntN(len(list))]
 	}
 	priceMin, priceMax := cfg.PriceMin, cfg.PriceMax
 	if priceMin <= 0 {
@@ -61,12 +63,24 @@ func genOrder(cfg OrderConfig, serviceProvider string, now time.Time, r *rand.Ra
 	round2 := func(f float64) float64 { return math.Round(f*100) / 100 }
 
 	price := round2(priceMin + r.Float64()*(priceMax-priceMin))
-	qty := qtyMin + r.Intn(qtyMax-qtyMin+1)
+	qty := qtyMin + r.IntN(qtyMax-qtyMin+1)
 	ms := func(t time.Time) string { return strconv.FormatInt(t.UnixMilli(), 10) }
-	pay := now
-	payClick := pay.Add(-time.Duration(1+r.Intn(10)) * time.Second)
-	create := payClick.Add(-time.Duration(10+r.Intn(111)) * time.Second)
-	click := create.Add(-time.Duration(1+r.Intn(30)) * time.Minute)
+
+	payGap := time.Duration(1+r.IntN(10)) * time.Second
+	createGap := time.Duration(10+r.IntN(111)) * time.Second
+	clickGap := time.Duration(1+r.IntN(30)) * time.Minute
+	pay := time.UnixMilli(payMs)
+	realClick := clickMs > 0 && clickMs <= payMs
+	if realClick {
+		span := pay.Sub(time.UnixMilli(clickMs)) / 3
+		payGap, createGap = min(payGap, span), min(createGap, span)
+	}
+	payClick := pay.Add(-payGap)
+	create := payClick.Add(-createGap)
+	click := create.Add(-clickGap)
+	if realClick {
+		click = time.UnixMilli(clickMs)
+	}
 
 	return itemOrderPay{
 		ClickTime:         ms(click),
@@ -80,7 +94,7 @@ func genOrder(cfg OrderConfig, serviceProvider string, now time.Time, r *rand.Ra
 		Category:          pick(cfg.Categories, "日用百货"),
 		OrderStatus:       "已付款",
 		// 淘宝订单号形态: 19 位数字
-		OrderID:         fmt.Sprintf("%d%018d", 1+r.Intn(9), r.Int63n(1e18)),
+		OrderID:         fmt.Sprintf("%d%018d", 1+r.IntN(9), r.Int64N(1e18)),
 		ServiceProvider: serviceProvider,
 	}
 }
