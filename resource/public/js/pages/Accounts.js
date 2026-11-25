@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=13'
+import { api } from '../api.js?v=14'
 
 export default {
   setup() {
@@ -320,9 +320,8 @@ export default {
       </div>
 
       <!-- 最近监测请求 -->
-      <Modal :show="!!reqTarget" :title="'最近请求 · ' + (reqTarget?.name || '') + ' (最多 50 条, 最新在前)'" width="max-w-5xl"
+      <Modal :show="!!reqTarget" :title="'最近请求 · ' + (reqTarget?.name || '')" width="max-w-5xl"
         confirm-text="刷新" :confirm-disabled="reqLoading" @close="reqTarget=null" @confirm="loadRequests">
-        <div class="text-xs opacity-70 mb-2">黄色 = 宏未被平台替换 (或为空); 只记录已启用账户的请求, 写入有约 1 秒延迟</div>
         <div class="overflow-y-auto max-h-[60vh]">
           <table class="table table-xs">
             <thead><tr><th class="w-44">时间</th><th>参数</th></tr></thead>
@@ -368,11 +367,11 @@ export default {
           <div v-else-if="createPlatformName==='weibo_direct'" class="grid grid-cols-2 gap-3">
             <div class="form-control">
               <label class="label"><span class="label-text">服务商名称 *</span></label>
-              <input v-model="createForm.serviceProvider" class="input input-bordered input-sm" placeholder="item_order_pay.service_provider">
+              <input v-model="createForm.serviceProvider" class="input input-bordered input-sm">
             </div>
             <div class="form-control">
               <label class="label"><span class="label-text">技术服务商</span></label>
-              <input v-model="createForm.technicalProvider" class="input input-bordered input-sm" placeholder="使用三方技术服务时必填">
+              <input v-model="createForm.technicalProvider" class="input input-bordered input-sm">
             </div>
             <div class="form-control">
               <label class="label"><span class="label-text">商品名 (每行一个, 随机取)</span></label>
@@ -390,7 +389,6 @@ export default {
               <label class="label"><span class="label-text">数量范围</span></label>
               <div class="flex gap-2"><input v-model.number="createForm.qtyMin" type="number" min="1" class="input input-bordered input-sm w-full"><input v-model.number="createForm.qtyMax" type="number" min="1" class="input input-bordered input-sm w-full"></div>
             </div>
-            <div class="col-span-2 text-xs opacity-70">免鉴权回传; behavior=2001 时按以上配置随机生成订单 (item_order_pay)。</div>
           </div>
           <div v-else-if="createPlatformName==='xiaohongshu'" class="grid grid-cols-1 gap-3">
             <div class="form-control">
@@ -510,11 +508,11 @@ export default {
           <div v-else-if="editForm.platformName==='weibo_direct'" class="grid grid-cols-2 gap-3">
             <div class="form-control">
               <label class="label"><span class="label-text">服务商名称 *</span></label>
-              <input v-model="editForm.serviceProvider" class="input input-bordered input-sm" placeholder="item_order_pay.service_provider">
+              <input v-model="editForm.serviceProvider" class="input input-bordered input-sm">
             </div>
             <div class="form-control">
               <label class="label"><span class="label-text">技术服务商</span></label>
-              <input v-model="editForm.technicalProvider" class="input input-bordered input-sm" placeholder="使用三方技术服务时必填">
+              <input v-model="editForm.technicalProvider" class="input input-bordered input-sm">
             </div>
             <div class="form-control">
               <label class="label"><span class="label-text">商品名 (每行一个, 随机取)</span></label>
@@ -532,7 +530,6 @@ export default {
               <label class="label"><span class="label-text">数量范围</span></label>
               <div class="flex gap-2"><input v-model.number="editForm.qtyMin" type="number" min="1" class="input input-bordered input-sm w-full"><input v-model.number="editForm.qtyMax" type="number" min="1" class="input input-bordered input-sm w-full"></div>
             </div>
-            <div class="col-span-2 text-xs opacity-70">免鉴权回传; behavior=2001 时按以上配置随机生成订单 (item_order_pay)。</div>
           </div>
           <div v-else-if="editForm.platformName==='xiaohongshu'" class="grid grid-cols-1 gap-3">
             <div class="form-control">
