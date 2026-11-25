@@ -1,6 +1,6 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=17'
-import TrendChart from '../components/TrendChart.js?v=17'
+import { api } from '../api.js?v=18'
+import TrendChart from '../components/TrendChart.js?v=18'
 
 // 日期转 YYYY-MM-DD
 function fmtDate(d) {
@@ -69,10 +69,10 @@ export default {
     // 客户端导出当前表格为 CSV
     const exportCSV = () => {
       if (!rows.value.length) return
-      const header = '日期,账户,平台,点击,淘联成功,淘联失败,淘联回调,回调丢弃,真实回传,回传失败,联调回传,联调失败,虚假回传,虚假失败,点击丢弃'
+      const header = '日期,账户,平台,点击,重复点击,淘联成功,淘联失败,淘联回调,回调丢弃,真实回传,回传失败,联调回传,联调失败,虚假回传,虚假失败,点击丢弃'
       const lines = rows.value.map(r => [
         r.statDate, r.accountName || r.accountId, r.platformName,
-        r.clickCount, r.taolianOk, r.taolianErr, r.cbRecv, r.cbDrop,
+        r.clickCount, r.dupCount, r.taolianOk, r.taolianErr, r.cbRecv, r.cbDrop,
         r.callbackOk, r.callbackErr, r.debugOk, r.debugErr, r.fakeOk, r.fakeErr, r.dropCount,
       ].join(','))
       const blob = new Blob(['﻿' + [header, ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
@@ -132,6 +132,7 @@ export default {
         <div class="stat bg-base-100 shadow rounded-box py-3">
           <div class="stat-title text-xs">点击</div>
           <div class="stat-value text-xl">{{ summary.clickCount }}</div>
+          <div class="stat-desc" v-if="summary.dupCount">重复 {{ summary.dupCount }}</div>
         </div>
         <div class="stat bg-base-100 shadow rounded-box py-3">
           <div class="stat-title text-xs">淘联上报</div>
@@ -184,7 +185,7 @@ export default {
             <thead>
               <tr>
                 <th>日期</th><th>账户</th><th>平台</th>
-                <th class="text-right">点击</th>
+                <th class="text-right">点击</th><th class="text-right">重复点击</th>
                 <th class="text-right">淘联成功</th><th class="text-right">淘联失败</th>
                 <th class="text-right">淘联回调</th><th class="text-right">回调丢弃</th>
                 <th class="text-right">真实回传</th><th class="text-right">回传失败</th>
@@ -202,6 +203,7 @@ export default {
                 <td>{{ r.accountName || r.accountId }}</td>
                 <td>{{ r.platformName }}</td>
                 <td class="text-right">{{ r.clickCount }}</td>
+                <td class="text-right" :class="r.dupCount ? '' : 'opacity-40'">{{ r.dupCount }}</td>
                 <td class="text-right text-success">{{ r.taolianOk }}</td>
                 <td class="text-right" :class="r.taolianErr ? 'text-error' : 'opacity-40'">{{ r.taolianErr }}</td>
                 <td class="text-right" :class="r.cbRecv ? '' : 'opacity-40'">{{ r.cbRecv }}</td>
@@ -214,7 +216,7 @@ export default {
                 <td class="text-right" :class="r.dropCount ? 'text-error' : 'opacity-40'">{{ r.dropCount }}</td>
               </tr>
               <tr v-if="!rows.length && !loading">
-                <td colspan="14" class="text-center py-8 opacity-50">所选区间内无数据</td>
+                <td colspan="15" class="text-center py-8 opacity-50">所选区间内无数据</td>
               </tr>
             </tbody>
           </table>

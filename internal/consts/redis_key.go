@@ -17,6 +17,8 @@ func KeyStatsCallbackOk(aid int, day string) string  { return fmt.Sprintf("stats
 func KeyStatsCallbackErr(aid int, day string) string { return fmt.Sprintf("stats:callback:err:%d:%s", aid, day) }
 func KeyStatsFakeOk(aid int, day string) string      { return fmt.Sprintf("stats:fake:ok:%d:%s", aid, day) }
 func KeyStatsFakeErr(aid int, day string) string     { return fmt.Sprintf("stats:fake:err:%d:%s", aid, day) }
+func KeyStatsClickSet(aid int, day string) string { return fmt.Sprintf("stats:clickset:%d:%s", aid, day) } // 当天已计数的点击ID (去重)
+func KeyStatsDup(aid int, day string) string      { return fmt.Sprintf("stats:dup:%d:%s", aid, day) }      // 重复点击 (同点击ID, 已丢弃)
 func KeyStatsDrop(aid int, day string) string        { return fmt.Sprintf("stats:drop:%d:%s", aid, day) }     // 监测点击丢弃
 func KeyStatsDebugOk(aid int, day string) string     { return fmt.Sprintf("stats:debug:ok:%d:%s", aid, day) }  // 联调模拟回传
 func KeyStatsDebugErr(aid int, day string) string    { return fmt.Sprintf("stats:debug:err:%d:%s", aid, day) }

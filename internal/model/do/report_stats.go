@@ -29,4 +29,5 @@ type ReportStats struct {
 	DebugErr    any         // 联调模拟回传失败
 	CbRecv      any         // 收到淘联转化回调
 	CbDrop      any         // 淘联回调丢弃
+	DupCount    any         // 重复点击 (同点击ID, 已丢弃)
 }

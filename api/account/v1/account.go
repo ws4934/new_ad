@@ -35,6 +35,7 @@ type AccountItem struct {
 	TodayCallback int `json:"todayCallback"`
 	TodayFake     int `json:"todayFake"`
 	TodayDebug    int `json:"todayDebug"` // 联调模拟回传 (不含在 TodayCallback 里)
+	TodayDup      int `json:"todayDup"`   // 重复点击 (不含在 TodayClick 里)
 }
 
 type AccountListRes struct {

@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS report_stats (
     debug_err           INT NOT NULL DEFAULT 0,
     cb_recv             INT NOT NULL DEFAULT 0,
     cb_drop             INT NOT NULL DEFAULT 0,
+    dup_count           INT NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(account_id, platform_id, stat_date)
 );
@@ -88,6 +89,7 @@ COMMENT ON COLUMN report_stats.debug_ok IS '联调模拟回传成功';
 COMMENT ON COLUMN report_stats.debug_err IS '联调模拟回传失败';
 COMMENT ON COLUMN report_stats.cb_recv IS '收到淘联转化回调';
 COMMENT ON COLUMN report_stats.cb_drop IS '淘联回调丢弃';
+COMMENT ON COLUMN report_stats.dup_count IS '重复点击 (同点击ID, 已丢弃)';
 -- 报表按日期范围查询 (账户可选), UNIQUE 索引首列是 account_id 无法覆盖纯日期范围扫描
 CREATE INDEX IF NOT EXISTS idx_report_stats_stat_date ON report_stats(stat_date);
 

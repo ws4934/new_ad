@@ -141,8 +141,9 @@ func TestIntegration_MonitorReceive_ValidClick(t *testing.T) {
 	aid := getTestAccountID(ctx, t)
 	day := time.Now().Format("20060102")
 
-	// 清理 Redis 计数器
-	g.Redis().Del(ctx, consts.KeyStatsClick(aid, day))
+	// 清理 Redis 计数器 (含点击去重集合, 否则同一天重跑 IMP 会被当成重复)
+	stats.FlushCounters(ctx)
+	g.Redis().Del(ctx, consts.KeyStatsClick(aid, day), consts.KeyStatsClickSet(aid, day))
 	g.Redis().Del(ctx, consts.KeyStatsDrop(aid, day))
 
 	// 发送有效的监测请求

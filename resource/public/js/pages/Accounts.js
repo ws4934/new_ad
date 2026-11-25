@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=17'
+import { api } from '../api.js?v=18'
 
 export default {
   setup() {
@@ -310,7 +310,10 @@ export default {
                 <td>{{ a.id }}</td>
                 <td><span class="badge badge-sm">{{ a.platformName }}</span></td>
                 <td>{{ a.name }}</td>
-                <td>{{ a.todayClick }}</td>
+                <td>
+                  {{ a.todayClick }}
+                  <div v-if="a.todayDup" class="text-xs opacity-60">重复 {{ a.todayDup }}</div>
+                </td>
                 <td class="text-success">{{ a.todayTaolian }}</td>
                 <td class="text-info">
                   {{ a.todayCallback }}

@@ -2,6 +2,8 @@ package stats
 
 import (
 	"context"
+	"hash/fnv"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -31,10 +33,33 @@ var (
 
 const counterFlushInterval = time.Second
 
+// clickSetTTL 去重集合保留 2 天 (key 按天, 覆盖跨零点)
+const clickSetTTL = 2 * 24 * 3600
+
+// firstClickLua 加入当天点击ID集合并续期, 返回 1 = 首次出现, 0 = 重复 (一次往返)
+const firstClickLua = `local n = redis.call('SADD', KEYS[1], ARGV[1])
+if n == 1 then redis.call('EXPIRE', KEYS[1], ARGV[2]) end
+return n`
+
+// FirstClick 点击ID今天是否第一次出现; 同一次广告点击的重复请求返回 false。
+// 点击ID存 64 位 hash, 降低 Redis 占用 (IMP 原值上百字节)。
+// Redis 出错时当作首次放行, 不因去重丢掉真实点击
+func FirstClick(ctx context.Context, accountID int, clickID string) bool {
+	h := fnv.New64a()
+	h.Write([]byte(clickID))
+	key := consts.KeyStatsClickSet(accountID, Today())
+	v, err := g.Redis().Do(ctx, "EVAL", firstClickLua, 1, key, strconv.FormatUint(h.Sum64(), 36), clickSetTTL)
+	if err != nil {
+		g.Log().Warningf(ctx, "click dedup failed, treat as first: %v", err)
+		return true
+	}
+	return v.Int() == 1
+}
+
 // IncrCounter 通用计数器, 进程内聚合后由 worker 批量落 Redis
 // kind: click / taolian:ok / taolian:err / callback:ok / callback:err / fake:ok / fake:err / drop
 //
-//	/ debug:ok / debug:err (联调模拟回传) / cb:recv / cb:drop (淘联转化回调)
+//	/ dup (重复点击) / debug:ok / debug:err (联调模拟回传) / cb:recv / cb:drop (淘联转化回调)
 func IncrCounter(ctx context.Context, kind string, accountID int) {
 	day := Today()
 	var key string
@@ -55,6 +80,8 @@ func IncrCounter(ctx context.Context, kind string, accountID int) {
 		key = consts.KeyStatsFakeErr(accountID, day)
 	case "drop":
 		key = consts.KeyStatsDrop(accountID, day)
+	case "dup":
+		key = consts.KeyStatsDup(accountID, day)
 	case "debug:ok":
 		key = consts.KeyStatsDebugOk(accountID, day)
 	case "debug:err":
@@ -112,6 +139,7 @@ func ResetToday(ctx context.Context) (int, error) {
 		}
 	}
 	cntMu.Unlock()
+	// 点击去重集合 stats:clickset:*:<day> 也在下面的 SCAN 范围内, 一起清掉
 
 	deleted := 0
 	var cursor uint64

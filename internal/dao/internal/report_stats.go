@@ -38,6 +38,7 @@ type ReportStatsColumns struct {
 	DebugErr    string // 联调模拟回传失败
 	CbRecv      string // 收到淘联转化回调
 	CbDrop      string // 淘联回调丢弃
+	DupCount    string // 重复点击 (同点击ID, 已丢弃)
 }
 
 // reportStatsColumns holds the columns for the table report_stats.
@@ -59,6 +60,7 @@ var reportStatsColumns = ReportStatsColumns{
 	DebugErr:    "debug_err",
 	CbRecv:      "cb_recv",
 	CbDrop:      "cb_drop",
+	DupCount:    "dup_count",
 }
 
 // NewReportStatsDao creates and returns a new DAO object for table data access.

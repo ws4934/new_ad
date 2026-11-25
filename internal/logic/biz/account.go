@@ -46,7 +46,7 @@ func AccountList(ctx context.Context) ([]*v1.AccountItem, error) {
 
 	// 构造 Redis keys, 批量 MGet 今日计数
 	day := stats.Today()
-	keys := make([]string, 0, len(accounts)*5)
+	keys := make([]string, 0, len(accounts)*6)
 	for _, a := range accounts {
 		keys = append(keys,
 			consts.KeyStatsClick(a.Id, day),
@@ -54,6 +54,7 @@ func AccountList(ctx context.Context) ([]*v1.AccountItem, error) {
 			consts.KeyStatsCallbackOk(a.Id, day),
 			consts.KeyStatsFakeOk(a.Id, day),
 			consts.KeyStatsDebugOk(a.Id, day),
+			consts.KeyStatsDup(a.Id, day),
 		)
 	}
 
@@ -83,7 +84,7 @@ func AccountList(ctx context.Context) ([]*v1.AccountItem, error) {
 			UpdatedAt:     a.UpdatedAt,
 		}
 		if counters != nil {
-			base := i * 5
+			base := i * 6
 			if v, ok := counters[keys[base]]; ok && v != nil {
 				item.TodayClick = v.Int()
 			}
@@ -98,6 +99,9 @@ func AccountList(ctx context.Context) ([]*v1.AccountItem, error) {
 			}
 			if v, ok := counters[keys[base+4]]; ok && v != nil {
 				item.TodayDebug = v.Int()
+			}
+			if v, ok := counters[keys[base+5]]; ok && v != nil {
+				item.TodayDup = v.Int()
 			}
 		}
 		items = append(items, item)

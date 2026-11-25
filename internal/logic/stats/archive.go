@@ -20,7 +20,7 @@ func ArchiveYesterday(ctx context.Context) error {
 
 	rc := dao.ReportStats.Columns()
 
-	// ── 1. 账户维度归档: 遍历所有 account, 读 12 个 Redis 计数器, 写 report_stats ──
+	// ── 1. 账户维度归档: 遍历所有 account, 读 13 个 Redis 计数器, 写 report_stats ──
 	var accts []*entity.AdAccount
 	if err := dao.AdAccount.Ctx(ctx).Scan(&accts); err != nil {
 		return err
@@ -32,7 +32,7 @@ func ArchiveYesterday(ctx context.Context) error {
 			rc.PlatformId: acct.PlatformId,
 			rc.StatDate:   statDate,
 		}
-		// 读 12 个计数器
+		// 读 13 个计数器
 		keys := map[string]string{
 			rc.ClickCount:  consts.KeyStatsClick(aid, day),
 			rc.TaolianOk:   consts.KeyStatsTaolianOk(aid, day),
@@ -46,6 +46,7 @@ func ArchiveYesterday(ctx context.Context) error {
 			rc.DebugErr:    consts.KeyStatsDebugErr(aid, day),
 			rc.CbRecv:      consts.KeyStatsCbRecv(aid, day),
 			rc.CbDrop:      consts.KeyStatsCbDrop(aid, day),
+			rc.DupCount:    consts.KeyStatsDup(aid, day),
 		}
 		hasAny := false
 		readErr := false

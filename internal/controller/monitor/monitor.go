@@ -77,7 +77,13 @@ func (c *Controller) Receive(ctx context.Context, req *v1.MonitorReq) (res *v1.M
 	}
 	data.AccountID = accountID
 
-	// 5. 点击计数
+	// 5. 按点击ID去重: 同一次广告点击的重复请求只计「重复点击」并丢弃,
+	//    不再上报淘联 (淘联回调不去重, 重复上报可能导致给广告平台重复报转化)
+	clickID := data.Values[consts.FieldClickID]
+	if !stats.FirstClick(ctx, accountID, clickID) {
+		stats.IncrCounter(ctx, "dup", accountID)
+		return nil, nil
+	}
 	stats.IncrCounter(ctx, "click", accountID)
 
 	// 6. 设备号去重 + CSV (监测维度: {平台名}_{设备号类型}.csv)
@@ -99,7 +105,6 @@ func (c *Controller) Receive(ctx context.Context, req *v1.MonitorReq) (res *v1.M
 	go c.dedup.ProcessClickDevices(context.Background(), platform.Name, devices)
 
 	// 7. 联调 / 正常 / 虚假 三种模式分支
-	clickID := data.Values[consts.FieldClickID]
 	ts := now.Unix()
 
 	if acct.DebugMode {

@@ -50,12 +50,13 @@ SELECT 'weibo_direct', '微博直达', '{"reportUrl": "https://api.biz.weibo.com
 ON CONFLICT (name) DO NOTHING`); err != nil {
 				g.Log().Warningf(ctx, "seed weibo_direct platform: %v", err)
 			}
-			// 统计口径: 联调回传 / 淘联回调单独计数 (已有部署补列, 幂等)
+			// 统计口径: 联调回传 / 淘联回调 / 重复点击单独计数 (已有部署补列, 幂等)
 			if _, err := g.DB().Exec(ctx, `ALTER TABLE report_stats
   ADD COLUMN IF NOT EXISTS debug_ok  INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS debug_err INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS cb_recv   INT NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS cb_drop   INT NOT NULL DEFAULT 0`); err != nil {
+  ADD COLUMN IF NOT EXISTS cb_drop   INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS dup_count INT NOT NULL DEFAULT 0`); err != nil {
 				g.Log().Warningf(ctx, "migrate report_stats: %v", err)
 			}
 			_, _ = gcron.AddSingleton(ctx, "*/5 * * * * *", issue.Tick, "issue-monitor")
