@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=11'
+import { api } from '../api.js?v=12'
 
 export default {
   setup() {
@@ -15,6 +15,7 @@ export default {
     const createForm = ref({
       platformId: 0, name: '',
       company: '', advertiserId: '', platform: 'taobao',
+      serviceProvider: '', technicalProvider: '', itemNames: '', categories: '', priceMin: 10, priceMax: 100, qtyMin: 1, qtyMax: 1,
       channel: '', taskId: '', tbkId: '',
       fakeEnabled: false, fakeRate: 20, fakeDelayMin: 30, fakeDelayMax: 1800,
       debugMode: false, debugEvents: [],
@@ -24,6 +25,7 @@ export default {
     const editForm = ref({
       id: 0, platformName: '', name: '',
       company: '', advertiserId: '', platform: '',
+      serviceProvider: '', technicalProvider: '', itemNames: '', categories: '', priceMin: 10, priceMax: 100, qtyMin: 1, qtyMax: 1,
       channel: '', taskId: '', tbkId: '',
       fakeEnabled: false, fakeRate: 0,
       fakeDelayMin: 30, fakeDelayMax: 1800, status: 1,
@@ -56,6 +58,16 @@ export default {
     }
 
     const parseJson = (s) => { try { return JSON.parse(s) } catch { return {} } }
+    const lines = (t) => t.split('\n').map(x => x.trim()).filter(Boolean)
+    // 微博直达: 服务商名称 + 随机订单配置 (item_order_pay 按此生成)
+    const credsOf = (f, pName) => pName === 'weibo_direct' ? {
+      service_provider: f.serviceProvider.trim(), technical_provider: f.technicalProvider.trim(),
+      order: {
+        item_names: lines(f.itemNames), categories: lines(f.categories),
+        price_min: Number(f.priceMin), price_max: Number(f.priceMax),
+        qty_min: Number(f.qtyMin), qty_max: Number(f.qtyMax),
+      },
+    } : { company: f.company, advertiser_id: f.advertiserId, platform: f.platform }
 
     // --- 映射行操作 ---
     const addMappingRow = (form) => {
@@ -78,11 +90,15 @@ export default {
     const create = async () => {
       try {
         const f = createForm.value
+        if (createPlatformName.value === 'weibo_direct' && !f.serviceProvider.trim()) {
+          toast.show('请填写服务商名称', 'error')
+          return
+        }
         // 1. 创建账户
         const res = await api.accountCreate({
           platformId: f.platformId,
           name: f.name,
-          credentials: JSON.stringify({ company: f.company, advertiser_id: f.advertiserId, platform: f.platform }),
+          credentials: JSON.stringify(credsOf(f, createPlatformName.value)),
           taolianConfig: JSON.stringify({ channel: f.channel, taskId: f.taskId, tbkId: f.tbkId, sourcePack: 1 }),
           fakeEnabled: f.fakeEnabled,
           fakeRate: f.fakeRate,
@@ -130,6 +146,10 @@ export default {
       editForm.value = {
         id: a.id, platformName: a.platformName, name: a.name,
         company: creds.company || '', advertiserId: creds.advertiser_id || '', platform: creds.platform || '',
+        serviceProvider: creds.service_provider || '', technicalProvider: creds.technical_provider || '',
+        itemNames: (creds.order?.item_names || []).join('\n'), categories: (creds.order?.categories || []).join('\n'),
+        priceMin: creds.order?.price_min ?? 10, priceMax: creds.order?.price_max ?? 100,
+        qtyMin: creds.order?.qty_min ?? 1, qtyMax: creds.order?.qty_max ?? 1,
         channel: tc.channel || '', taskId: tc.taskId || '', tbkId: tc.tbkId || '',
         fakeEnabled: a.fakeEnabled, fakeRate: a.fakeRate,
         fakeDelayMin: a.fakeDelayMin, fakeDelayMax: a.fakeDelayMax,
@@ -144,10 +164,14 @@ export default {
     const saveEdit = async () => {
       try {
         const f = editForm.value
+        if (f.platformName === 'weibo_direct' && !f.serviceProvider.trim()) {
+          toast.show('请填写服务商名称', 'error')
+          return
+        }
         // 1. 更新账户
         await api.accountUpdate(f.id, {
           name: f.name,
-          credentials: JSON.stringify({ company: f.company, advertiser_id: f.advertiserId, platform: f.platform }),
+          credentials: JSON.stringify(credsOf(f, f.platformName)),
           taolianConfig: JSON.stringify({ channel: f.channel, taskId: f.taskId, tbkId: f.tbkId, sourcePack: 1 }),
           fakeEnabled: f.fakeEnabled,
           fakeRate: f.fakeRate,
@@ -297,8 +321,32 @@ export default {
             </div>
           </div>
           <!-- 小红书: 只需应用标识 (advertiser_id 从监测链接宏 __ADVERTISER_ID__ 自动获取) -->
-          <div v-else-if="createPlatformName==='weibo_direct'" class="text-xs opacity-70">
-            免鉴权回传, 无需凭证。监测链接里的 markid 即回传的 mark_id。
+          <div v-else-if="createPlatformName==='weibo_direct'" class="grid grid-cols-2 gap-3">
+            <div class="form-control">
+              <label class="label"><span class="label-text">服务商名称 *</span></label>
+              <input v-model="createForm.serviceProvider" class="input input-bordered input-sm" placeholder="item_order_pay.service_provider">
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">技术服务商</span></label>
+              <input v-model="createForm.technicalProvider" class="input input-bordered input-sm" placeholder="使用三方技术服务时必填">
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">商品名 (每行一个, 随机取)</span></label>
+              <textarea v-model="createForm.itemNames" rows="3" class="textarea textarea-bordered textarea-sm" placeholder="默认: 淘宝商品"></textarea>
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">类目 (每行一个, 随机取)</span></label>
+              <textarea v-model="createForm.categories" rows="3" class="textarea textarea-bordered textarea-sm" placeholder="默认: 日用百货"></textarea>
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">单价范围 (元)</span></label>
+              <div class="flex gap-2"><input v-model.number="createForm.priceMin" type="number" step="0.01" min="0.01" class="input input-bordered input-sm w-full"><input v-model.number="createForm.priceMax" type="number" step="0.01" min="0.01" class="input input-bordered input-sm w-full"></div>
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">数量范围</span></label>
+              <div class="flex gap-2"><input v-model.number="createForm.qtyMin" type="number" min="1" class="input input-bordered input-sm w-full"><input v-model.number="createForm.qtyMax" type="number" min="1" class="input input-bordered input-sm w-full"></div>
+            </div>
+            <div class="col-span-2 text-xs opacity-70">免鉴权回传; behavior=2001 时按以上配置随机生成订单 (item_order_pay)。</div>
           </div>
           <div v-else-if="createPlatformName==='xiaohongshu'" class="grid grid-cols-1 gap-3">
             <div class="form-control">
@@ -415,8 +463,32 @@ export default {
             </div>
           </div>
           <!-- 小红书 -->
-          <div v-else-if="editForm.platformName==='weibo_direct'" class="text-xs opacity-70">
-            免鉴权回传, 无需凭证。监测链接里的 markid 即回传的 mark_id。
+          <div v-else-if="editForm.platformName==='weibo_direct'" class="grid grid-cols-2 gap-3">
+            <div class="form-control">
+              <label class="label"><span class="label-text">服务商名称 *</span></label>
+              <input v-model="editForm.serviceProvider" class="input input-bordered input-sm" placeholder="item_order_pay.service_provider">
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">技术服务商</span></label>
+              <input v-model="editForm.technicalProvider" class="input input-bordered input-sm" placeholder="使用三方技术服务时必填">
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">商品名 (每行一个, 随机取)</span></label>
+              <textarea v-model="editForm.itemNames" rows="3" class="textarea textarea-bordered textarea-sm" placeholder="默认: 淘宝商品"></textarea>
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">类目 (每行一个, 随机取)</span></label>
+              <textarea v-model="editForm.categories" rows="3" class="textarea textarea-bordered textarea-sm" placeholder="默认: 日用百货"></textarea>
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">单价范围 (元)</span></label>
+              <div class="flex gap-2"><input v-model.number="editForm.priceMin" type="number" step="0.01" min="0.01" class="input input-bordered input-sm w-full"><input v-model.number="editForm.priceMax" type="number" step="0.01" min="0.01" class="input input-bordered input-sm w-full"></div>
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text">数量范围</span></label>
+              <div class="flex gap-2"><input v-model.number="editForm.qtyMin" type="number" min="1" class="input input-bordered input-sm w-full"><input v-model.number="editForm.qtyMax" type="number" min="1" class="input input-bordered input-sm w-full"></div>
+            </div>
+            <div class="col-span-2 text-xs opacity-70">免鉴权回传; behavior=2001 时按以上配置随机生成订单 (item_order_pay)。</div>
           </div>
           <div v-else-if="editForm.platformName==='xiaohongshu'" class="grid grid-cols-1 gap-3">
             <div class="form-control">

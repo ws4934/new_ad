@@ -3,6 +3,7 @@ package weibodirect
 import (
 	"context"
 	"encoding/json"
+	"math/rand"
 	"net/url"
 	"strconv"
 	"time"
@@ -41,7 +42,16 @@ func (a *Adapter) ReportConversion(ctx context.Context, p *bo.CallbackPayload) (
 		reportURL = defaultReportURL
 	}
 
-	fullURL := reportURL + "?" + buildQuery(p.ClickID, p.MappedType, time.Now())
+	var creds credentials
+	_ = json.Unmarshal([]byte(p.Account.Credentials), &creds)
+	cbBase, _ := g.Cfg().Get(ctx, "adMonitor.callbackBaseUrl")
+	host := ""
+	if u, err := url.Parse(cbBase.String()); err == nil {
+		host = u.Hostname()
+	}
+
+	now := time.Now()
+	fullURL := reportURL + "?" + buildQuery(p.ClickID, p.MappedType, host, creds, now, rand.New(rand.NewSource(now.UnixNano())))
 	g.Log().Debugf(ctx, "weibo_direct report: %s", fullURL)
 
 	resp, err := httpx.New().Get(ctx, fullURL)
@@ -63,13 +73,33 @@ func (a *Adapter) ReportConversion(ctx context.Context, p *bo.CallbackPayload) (
 	return result, nil
 }
 
-// buildQuery time 为调用接口时的毫秒时间戳; mark_id 由 Encode 做一次 urlencode,
-// 微博服务端会 decode 一次 (多次 encode 会报 mark_id may be expired)
-func buildQuery(markID, behavior string, now time.Time) string {
+// behaviorPayOrder 付款订单商品数, 必须带 item_order_pay
+const behaviorPayOrder = "2001"
+
+// credentials 微博直达账户凭证 (ad_account.credentials)
+type credentials struct {
+	ServiceProvider   string      `json:"service_provider"`
+	TechnicalProvider string      `json:"technical_provider"`
+	Order             OrderConfig `json:"order"`
+}
+
+// buildQuery time 为调用接口时的毫秒时间戳; mark_id / item_order_pay 由 Encode
+// 做一次 urlencode, 微博服务端会 decode 一次 (多次 encode 会报 mark_id may be expired)
+func buildQuery(markID, behavior, host string, c credentials, now time.Time, r *rand.Rand) string {
 	v := url.Values{}
 	v.Set("time", strconv.FormatInt(now.UnixMilli(), 10))
 	v.Set("behavior", behavior)
 	v.Set("mark_id", markID)
+	if host != "" {
+		v.Set("host", host)
+	}
+	if c.TechnicalProvider != "" {
+		v.Set("technical_provider", c.TechnicalProvider)
+	}
+	if behavior == behaviorPayOrder {
+		b, _ := json.Marshal(genOrder(c.Order, c.ServiceProvider, now, r))
+		v.Set("item_order_pay", string(b))
+	}
 	return v.Encode()
 }
 
