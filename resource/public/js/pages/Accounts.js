@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=16'
+import { api } from '../api.js?v=17'
 
 export default {
   setup() {
@@ -232,6 +232,19 @@ export default {
     }
     const openRequests = (a) => { reqTarget.value = a; reqList.value = []; loadRequests() }
 
+    const showReset = ref(false)
+    const resetting = ref(false)
+    const resetToday = async () => {
+      resetting.value = true
+      try {
+        await api.statsResetToday()
+        showReset.value = false
+        toast.show('今日统计已重置', 'success')
+        await refresh()
+      } catch (e) { toast.show('重置失败: ' + e.message, 'error') }
+      resetting.value = false
+    }
+
     const remove = async () => {
       if (!deleteTarget.value || deleting.value) return
       deleting.value = true
@@ -254,6 +267,7 @@ export default {
       showCreate, createForm, createPlatformName, createPlatformTypes, create,
       showEdit, editForm, editPlatformTypes, openEdit, saveEdit,
       reqTarget, reqList, reqLoading, loadRequests, openRequests,
+      showReset, resetting, resetToday,
       addMappingRow, removeMappingRow, toggleDebug, copyURL,
     }
   },
@@ -263,10 +277,19 @@ export default {
         <h1 class="text-2xl font-bold flex items-center gap-2">
           <i data-lucide="users" class="w-6 h-6"></i> 账户管理
         </h1>
-        <button class="btn btn-primary btn-sm" @click="showCreate=true">
-          <i data-lucide="plus" class="w-4 h-4"></i> 新增账户
-        </button>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost btn-sm" @click="showReset=true">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 重置今日统计
+          </button>
+          <button class="btn btn-primary btn-sm" @click="showCreate=true">
+            <i data-lucide="plus" class="w-4 h-4"></i> 新增账户
+          </button>
+        </div>
       </div>
+
+      <Modal :show="showReset" title="重置今日统计" :confirm-text="resetting ? '重置中…' : '确认重置'" :confirm-disabled="resetting" @close="!resetting && (showReset=false)" @confirm="resetToday">
+        <p>清零所有账户今日统计？此操作不可恢复。</p>
+      </Modal>
 
       <Modal :show="!!deleteTarget" title="删除账户" :confirm-text="deleting ? '删除中…' : '确认删除'" :confirm-disabled="deleting" @close="!deleting && (deleteTarget=null)" @confirm="remove">
         <p>确认删除账户「{{ deleteTarget?.name }}」？此操作不可恢复。</p>

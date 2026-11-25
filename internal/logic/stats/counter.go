@@ -2,11 +2,13 @@ package stats
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
 	"ad-monitor/internal/consts"
 
+	"github.com/gogf/gf/v2/database/gredis"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -23,6 +25,8 @@ func Today() string {
 var (
 	cntMu      sync.Mutex
 	cntPending = map[string]int64{} // redis key → 累积增量
+	// flushMu 串行化落盘与清零: 避免清零时把 "已从内存取出、还没写进 Redis" 的旧增量写回去
+	flushMu sync.Mutex
 )
 
 const counterFlushInterval = time.Second
@@ -71,6 +75,8 @@ func IncrCounter(ctx context.Context, kind string, accountID int) {
 // FlushCounters 把累积的计数批量写入 Redis (INCRBY + 35 天 TTL)
 // 单个 key 写失败则回灌内存, 下个周期重试
 func FlushCounters(ctx context.Context) {
+	flushMu.Lock()
+	defer flushMu.Unlock()
 	cntMu.Lock()
 	if len(cntPending) == 0 {
 		cntMu.Unlock()
@@ -90,6 +96,41 @@ func FlushCounters(ctx context.Context) {
 			continue
 		}
 		_, _ = g.Redis().Expire(ctx, k, ttl)
+	}
+}
+
+// ResetToday 清零所有账户今日业务计数 (含进程内未落盘的增量), 返回删除的 key 数
+func ResetToday(ctx context.Context) (int, error) {
+	flushMu.Lock()
+	defer flushMu.Unlock()
+
+	suffix := ":" + Today()
+	cntMu.Lock()
+	for k := range cntPending {
+		if strings.HasSuffix(k, suffix) {
+			delete(cntPending, k)
+		}
+	}
+	cntMu.Unlock()
+
+	deleted := 0
+	var cursor uint64
+	for {
+		next, keys, err := g.Redis().Scan(ctx, cursor, gredis.ScanOption{Match: "stats:*" + suffix, Count: 500})
+		if err != nil {
+			return deleted, err
+		}
+		if len(keys) > 0 {
+			n, err := g.Redis().Del(ctx, keys...)
+			if err != nil {
+				return deleted, err
+			}
+			deleted += int(n)
+		}
+		if next == 0 {
+			return deleted, nil
+		}
+		cursor = next
 	}
 }
 

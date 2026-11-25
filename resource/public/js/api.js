@@ -72,6 +72,7 @@ export const api = {
   overview: () => request('/api/v2/stats/overview'),
   qps: () => request('/api/v2/stats/qps'),
   statsReport: (query) => request('/api/v2/stats/report', { query }),
+  statsResetToday: () => request('/api/v2/stats/reset-today', { method: 'POST' }),
 
   // 导出
   exportFiles: (query) => request('/api/v2/stats/export-files', { query }),

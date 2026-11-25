@@ -24,6 +24,16 @@ func New(csvWriter *dedup.CSVWriter) *Controller {
 	return &Controller{csvWriter: csvWriter}
 }
 
+// ResetToday 清零所有账户今日统计
+func (c *Controller) ResetToday(ctx context.Context, _ *v1.ResetTodayReq) (*v1.ResetTodayRes, error) {
+	n, err := logicstats.ResetToday(ctx)
+	if err != nil {
+		return nil, err
+	}
+	g.Log().Infof(ctx, "stats: reset today, %d keys deleted", n)
+	return &v1.ResetTodayRes{Deleted: n}, nil
+}
+
 // Overview 今日统计总览
 func (c *Controller) Overview(ctx context.Context, req *v1.OverviewReq) (res *v1.OverviewRes, err error) {
 	// 查所有启用账户

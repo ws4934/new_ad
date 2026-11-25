@@ -21,6 +21,14 @@ type OverviewRes struct {
 
 // --- QPS ---
 
+type ResetTodayReq struct {
+	g.Meta `path:"/api/v2/stats/reset-today" tags:"Stats" method:"post" summary:"清零所有账户今日统计"`
+}
+
+type ResetTodayRes struct {
+	Deleted int `json:"deleted"`
+}
+
 type QpsReq struct {
 	g.Meta `path:"/api/v2/stats/qps" tags:"Stats" method:"get" summary:"全局 QPS"`
 }
