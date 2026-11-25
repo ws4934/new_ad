@@ -297,6 +297,9 @@ export default {
             </div>
           </div>
           <!-- 小红书: 只需应用标识 (advertiser_id 从监测链接宏 __ADVERTISER_ID__ 自动获取) -->
+          <div v-else-if="createPlatformName==='weibo_direct'" class="text-xs opacity-70">
+            免鉴权回传, 无需凭证。监测链接里的 markid 即回传的 mark_id。
+          </div>
           <div v-else-if="createPlatformName==='xiaohongshu'" class="grid grid-cols-1 gap-3">
             <div class="form-control">
               <label class="label"><span class="label-text">应用标识</span></label>
@@ -412,6 +415,9 @@ export default {
             </div>
           </div>
           <!-- 小红书 -->
+          <div v-else-if="editForm.platformName==='weibo_direct'" class="text-xs opacity-70">
+            免鉴权回传, 无需凭证。监测链接里的 markid 即回传的 mark_id。
+          </div>
           <div v-else-if="editForm.platformName==='xiaohongshu'" class="grid grid-cols-1 gap-3">
             <div class="form-control">
               <label class="label"><span class="label-text">应用标识</span></label>

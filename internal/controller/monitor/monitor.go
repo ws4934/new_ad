@@ -12,6 +12,7 @@ import (
 	"ad-monitor/internal/logic/adapter"
 	// 防御性 blank import: 即使没有 packed 也保证适配器自注册
 	_ "ad-monitor/internal/logic/adapter/weibo"
+	_ "ad-monitor/internal/logic/adapter/weibodirect"
 	_ "ad-monitor/internal/logic/adapter/xiaohongshu"
 	"ad-monitor/internal/logic/cache"
 	"ad-monitor/internal/logic/dedup"

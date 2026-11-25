@@ -12,5 +12,6 @@ import (
 	//
 	// 新增平台时, 在这里加一行 blank import 即可。
 	_ "ad-monitor/internal/logic/adapter/weibo"
+	_ "ad-monitor/internal/logic/adapter/weibodirect"
 	_ "ad-monitor/internal/logic/adapter/xiaohongshu"
 )

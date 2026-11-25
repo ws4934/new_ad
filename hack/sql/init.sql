@@ -100,5 +100,6 @@ COMMENT ON TABLE platform_csv_stats IS '平台维度每日 CSV 新增设备号�
 -- 注意: caid 版本号不在这里配置, SplitCaid 从广告平台给的 caid 值前缀 "20250325_xxx" 自动解析
 INSERT INTO ad_platform (name, display_name, config) VALUES
 ('weibo', '微博', '{"reportUrl": "https://appmonitor.biz.weibo.com/sdkserver/active"}'),
+('weibo_direct', '微博直达', '{"reportUrl": "https://api.biz.weibo.com/v4/track/activate"}'),
 ('xiaohongshu', '小红书', '{"reportUrl": "https://adapi.xiaohongshu.com/api/open/conversion"}')
 ON CONFLICT (name) DO NOTHING;

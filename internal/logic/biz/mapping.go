@@ -89,6 +89,10 @@ func MappingOptions() *v1.MappingOptionsRes {
 				{Type: "9", Desc: "3日留存"},
 				{Type: "10", Desc: "7日留存"},
 			},
+			// 直达回传值以微博后台「添加事件」页展示为准, 文档示例 behavior=2001
+			"weibo_direct": {
+				{Type: "2001", Desc: "付款订单数"},
+			},
 			"xiaohongshu": {
 				{Type: "401", Desc: "APP打开"},
 				{Type: "402", Desc: "APP进店"},

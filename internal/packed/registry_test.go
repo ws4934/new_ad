@@ -12,7 +12,7 @@ import (
 // 这是 packed.go 里 `_ "ad-monitor/internal/logic/adapter/weibo"` 等 blank import 的
 // 行为真值验证 — 保证 adapter.Get("weibo") 不会返回 nil。
 func TestAdaptersRegistered(t *testing.T) {
-	cases := []string{"weibo", "xiaohongshu"}
+	cases := []string{"weibo", "weibo_direct", "xiaohongshu"}
 	for _, name := range cases {
 		a := adapter.Get(name)
 		if a == nil {
