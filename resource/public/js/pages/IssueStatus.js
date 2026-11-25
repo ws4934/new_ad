@@ -1,6 +1,6 @@
 import { ref, computed, inject, onMounted, onUnmounted } from 'vue'
-import { api } from '../api.js?v=14'
-import TrendChart from '../components/TrendChart.js?v=14'
+import { api } from '../api.js?v=15'
+import TrendChart from '../components/TrendChart.js?v=15'
 
 const CATS = { 1: '超级红包', 2: '福利购', 4: '福利直降' }
 

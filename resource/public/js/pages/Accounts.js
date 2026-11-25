@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=14'
+import { api } from '../api.js?v=15'
 
 export default {
   setup() {
@@ -320,7 +320,7 @@ export default {
       </div>
 
       <!-- 最近监测请求 -->
-      <Modal :show="!!reqTarget" :title="'最近请求 · ' + (reqTarget?.name || '')" width="max-w-5xl"
+      <Modal :show="!!reqTarget" title="最近请求" width="max-w-5xl"
         confirm-text="刷新" :confirm-disabled="reqLoading" @close="reqTarget=null" @confirm="loadRequests">
         <div class="overflow-y-auto max-h-[60vh]">
           <table class="table table-xs">

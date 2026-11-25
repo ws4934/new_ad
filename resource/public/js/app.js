@@ -1,6 +1,6 @@
 import { createApp, ref, computed, watch, onMounted, onUpdated, nextTick } from 'vue'
-import { router } from './router.js?v=14'
-import { api, clearToken } from './api.js?v=14'
+import { router } from './router.js?v=15'
+import { api, clearToken } from './api.js?v=15'
 import Modal from './components/Modal.js'
 import MultiSelect from './components/MultiSelect.js'
 import { useToast, ToastView } from './components/Toast.js'
