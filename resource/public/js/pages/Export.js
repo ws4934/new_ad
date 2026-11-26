@@ -66,7 +66,6 @@ export default {
             <select v-model="filter.platform" class="select select-bordered select-sm">
               <option value="">所有平台</option>
               <option value="weibo">微博</option>
-              <option value="weibo_direct">微博直达</option>
               <option value="xiaohongshu">小红书</option>
             </select>
             <select v-model="filter.field" class="select select-bordered select-sm">

@@ -171,7 +171,7 @@ func (c *Controller) Receive(ctx context.Context, req *v1.MonitorReq) (res *v1.M
 				if err == nil {
 					return nil, nil
 				}
-				g.Log().Warningf(ctx, "enqueue fake failed, fallback to taolian: %v", err)
+				g.Log().Warningf(ctx, "enqueue fake failed: %v", err)
 			}
 		}
 

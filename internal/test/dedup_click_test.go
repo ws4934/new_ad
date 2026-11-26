@@ -2,7 +2,6 @@ package test_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"net/http"
@@ -13,10 +12,8 @@ import (
 
 	"ad-monitor/internal/consts"
 	"ad-monitor/internal/logic/stats"
-	"ad-monitor/internal/model/bo"
 
 	"github.com/gogf/gf/v2/frame/g"
-	"github.com/hibiken/asynq"
 )
 
 // TestIntegration_ClickDedup 同一点击ID的重复请求: 只计「重复点击」, 不计点击, 不上报淘联; 请求记录照常保留
@@ -31,19 +28,8 @@ func TestIntegration_ClickDedup(t *testing.T) {
 	g.Redis().Del(ctx, keys...)
 	defer g.Redis().Del(ctx, keys...)
 
-	ins := asynq.NewInspector(asynq.RedisClientOpt{
-		Addr: g.Cfg().MustGet(ctx, "adMonitor.queue.redisAddr").String(),
-		DB:   g.Cfg().MustGet(ctx, "adMonitor.queue.redisDb").Int(),
-	})
 	taolianTasks := func(cid string) int {
-		n := 0
-		tasks, _ := ins.ListPendingTasks(consts.QueueDefault, asynq.PageSize(1000))
-		for _, ti := range tasks {
-			var p bo.TaolianTaskPayload
-			if json.Unmarshal(ti.Payload, &p) == nil && p.AccountID == aid && p.ClickID == cid {
-				n++
-			}
-		}
+		n, _ := queuedTasks(ctx, aid, cid)
 		return n
 	}
 	// 点击ID每次运行唯一: 测试不起 asynq 消费者, 上次运行留下的待处理任务不能影响本次计数

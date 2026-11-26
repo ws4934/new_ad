@@ -28,19 +28,23 @@ func queuedTasks(ctx context.Context, aid int, cid string) (taolian, fake int) {
 		DB:   g.Cfg().MustGet(ctx, "adMonitor.queue.redisDb").Int(),
 	})
 	defer ins.Close()
-	count := func(tasks []*asynq.TaskInfo) int {
+	// 翻完所有页: 测试不起消费者, 旧任务会越积越多, 只看第一页会漏掉新任务
+	count := func(list func(string, ...asynq.ListOption) ([]*asynq.TaskInfo, error), queue string) int {
 		n := 0
-		for _, ti := range tasks {
-			var p bo.TaolianTaskPayload // 与 FakeTaskPayload 的 aid/cid 字段同名
-			if json.Unmarshal(ti.Payload, &p) == nil && p.AccountID == aid && p.ClickID == cid {
-				n++
+		for page := 1; ; page++ {
+			tasks, err := list(queue, asynq.PageSize(1000), asynq.Page(page))
+			if err != nil || len(tasks) == 0 {
+				return n
+			}
+			for _, ti := range tasks {
+				var p bo.TaolianTaskPayload // 与 FakeTaskPayload 的 aid/cid 字段同名
+				if json.Unmarshal(ti.Payload, &p) == nil && p.AccountID == aid && p.ClickID == cid {
+					n++
+				}
 			}
 		}
-		return n
 	}
-	pending, _ := ins.ListPendingTasks(consts.QueueDefault, asynq.PageSize(1000))
-	scheduled, _ := ins.ListScheduledTasks(consts.QueueFake, asynq.PageSize(1000))
-	return count(pending), count(scheduled)
+	return count(ins.ListPendingTasks, consts.QueueDefault), count(ins.ListScheduledTasks, consts.QueueFake)
 }
 
 // uniqueCID 点击ID每次运行唯一: 测试不起 asynq 消费者, 上次运行留下的任务不能影响本次计数
@@ -58,9 +62,10 @@ func hitMonitor(t *testing.T, s *ghttp.Server, aid int, query string) {
 	time.Sleep(300 * time.Millisecond)
 }
 
-func setFake(ctx context.Context, aid int, on bool) {
+// setFake rate>0 开启虚假上报并设抽样率, 0 关闭 (测试账户的初始状态)
+func setFake(ctx context.Context, aid int, rate int) {
 	ac := dao.AdAccount.Columns()
-	_, _ = dao.AdAccount.Ctx(ctx).WherePri(aid).Data(g.Map{ac.FakeEnabled: on, ac.FakeRate: 100}).Update()
+	_, _ = dao.AdAccount.Ctx(ctx).WherePri(aid).Data(g.Map{ac.FakeEnabled: rate > 0, ac.FakeRate: rate}).Update()
 	cache.InvalidateAccount(ctx, aid)
 }
 
@@ -70,10 +75,18 @@ func TestIntegration_FakeReport_SkipsTaolian(t *testing.T) {
 	defer s.Shutdown()
 	ctx := context.Background()
 	aid := getTestAccountID(ctx, t)
-	setFake(ctx, aid, true)
-	defer setFake(ctx, aid, false)
+	defer setFake(ctx, aid, 0)
 
-	cid := uniqueCID("FAKE_ONLY_")
+	// 对照: 不开虚假时正常上报淘联 (也证明 queuedTasks 能看到淘联任务)
+	setFake(ctx, aid, 0)
+	cid := uniqueCID("FAKE_OFF_")
+	hitMonitor(t, s, aid, "IMP="+cid+"&imei_md5=fake_dev")
+	if tl, fk := queuedTasks(ctx, aid, cid); tl != 1 || fk != 0 {
+		t.Fatalf("fake off: taolian tasks=%d fake tasks=%d, want 1/0", tl, fk)
+	}
+
+	setFake(ctx, aid, 100)
+	cid = uniqueCID("FAKE_ONLY_")
 	hitMonitor(t, s, aid, "IMP="+cid+"&imei_md5=fake_dev")
 	if tl, fk := queuedTasks(ctx, aid, cid); tl != 0 || fk != 1 {
 		t.Fatalf("taolian tasks=%d fake tasks=%d, want 0/1", tl, fk)
@@ -110,6 +123,8 @@ func TestIntegration_WeiboDirect_NoTaolian(t *testing.T) {
 		dao.ActionMapping.Ctx(ctx).Where(mc.AccountId, aid).Delete()
 		dao.AdAccount.Ctx(ctx).WherePri(aid).Delete()
 		cache.InvalidateAccount(ctx, aid)
+		stats.FlushCounters(ctx) // 内存里攒着的先落盘再删, 否则之后别的测试 flush 会把 key 写回来
+		stats.FlushRequestLog(ctx)
 		g.Redis().Del(ctx, consts.KeyStatsClick(aid, stats.Today()), consts.KeyStatsClickSet(aid, stats.Today()), consts.KeyReqLog(aid))
 	}()
 	if _, err := dao.ActionMapping.Ctx(ctx).Data(g.Map{
@@ -125,7 +140,7 @@ func TestIntegration_WeiboDirect_NoTaolian(t *testing.T) {
 		t.Fatalf("fake off: taolian tasks=%d fake tasks=%d, want 0/0", tl, fk)
 	}
 
-	setFake(ctx, aid, true)
+	setFake(ctx, aid, 100)
 	cid = uniqueCID("WD_FAKE_")
 	hitMonitor(t, s, aid, "markid="+cid+"&ip=1.2.3.4&clicktime=1700000000000")
 	if tl, fk := queuedTasks(ctx, aid, cid); tl != 0 || fk != 1 {
