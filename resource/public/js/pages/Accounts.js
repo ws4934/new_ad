@@ -1,5 +1,5 @@
 import { ref, computed, inject, onMounted } from 'vue'
-import { api } from '../api.js?v=21'
+import { api } from '../api.js?v=22'
 
 export default {
   setup() {
@@ -456,6 +456,7 @@ export default {
             </div>
           </div>
 
+          <template v-if="createPlatformName!=='weibo_direct'">
           <div class="divider text-xs my-4">淘联配置</div>
           <div class="grid grid-cols-3 gap-3">
             <div class="form-control">
@@ -471,6 +472,7 @@ export default {
               <input v-model="createForm.tbkId" class="input input-bordered input-sm" placeholder="mm_xx_xx_xx">
             </div>
           </div>
+          </template>
 
           <div class="divider text-xs my-4">行为映射</div>
           <div class="space-y-2">
@@ -597,6 +599,7 @@ export default {
             </div>
           </div>
 
+          <template v-if="editForm.platformName!=='weibo_direct'">
           <div class="divider text-xs my-4">淘联配置</div>
           <div class="grid grid-cols-3 gap-3">
             <div class="form-control">
@@ -612,6 +615,7 @@ export default {
               <input v-model="editForm.tbkId" class="input input-bordered input-sm">
             </div>
           </div>
+          </template>
 
           <div class="divider text-xs my-4">行为映射</div>
           <div class="space-y-2">

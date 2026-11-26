@@ -14,6 +14,7 @@ type MacroField struct {
 type MacroSpec struct {
 	PlatformName string
 	Fields       []MacroField
+	NoTaolian    bool // 监测链接不带设备号 (淘联点击上报至少要一个): 点击不上报淘联, 只走虚假上报/联调
 }
 
 // ClickData 解析后的标准化点击数据

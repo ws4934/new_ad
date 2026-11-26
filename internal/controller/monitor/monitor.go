@@ -175,7 +175,10 @@ func (c *Controller) Receive(ctx context.Context, req *v1.MonitorReq) (res *v1.M
 			}
 		}
 
-		// 上报淘联
+		// 上报淘联 (平台不给设备号的不报, 如微博直达)
+		if ad.Spec().NoTaolian {
+			return nil, nil
+		}
 		if err := queue.EnqueueTaolianReport(ctx, &bo.TaolianTaskPayload{
 			AccountID: accountID,
 			ClickID:   clickID,
