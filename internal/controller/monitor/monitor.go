@@ -149,17 +149,8 @@ func (c *Controller) Receive(ctx context.Context, req *v1.MonitorReq) (res *v1.M
 
 	} else {
 		// === 正常模式 ===
-		// 上报淘联
-		if err := queue.EnqueueTaolianReport(ctx, &bo.TaolianTaskPayload{
-			AccountID: accountID,
-			ClickID:   clickID,
-			Devices:   devices,
-			TS:        ts,
-		}); err != nil {
-			g.Log().Warningf(ctx, "enqueue taolian failed: %v", err)
-		}
-
-		// 虚假上报判定
+		// 虚假上报: 抽中的点击直接回传广告平台, 不上报淘联 (否则淘联真实回调会对同一点击再回传一次);
+		// 没有可用映射或入队失败时退回正常上报淘联, 点击不丢
 		if acct.FakeEnabled && hitRate(acct.FakeRate) {
 			taolianType, mappedType := pickFakeType(ctx, acct)
 			if mappedType != "" {
@@ -169,7 +160,7 @@ func (c *Controller) Receive(ctx context.Context, req *v1.MonitorReq) (res *v1.M
 				}
 				delay := time.Duration(rand.Intn(delayMax-delayMin)+delayMin) * time.Second
 
-				_ = queue.EnqueueFakeReport(ctx, &bo.FakeTaskPayload{
+				err := queue.EnqueueFakeReport(ctx, &bo.FakeTaskPayload{
 					AccountID:   accountID,
 					ClickID:     clickID,
 					Devices:     devices,
@@ -177,7 +168,21 @@ func (c *Controller) Receive(ctx context.Context, req *v1.MonitorReq) (res *v1.M
 					MappedType:  mappedType,
 					TS:          now.Add(delay).UnixMilli(),
 				}, delay)
+				if err == nil {
+					return nil, nil
+				}
+				g.Log().Warningf(ctx, "enqueue fake failed, fallback to taolian: %v", err)
 			}
+		}
+
+		// 上报淘联
+		if err := queue.EnqueueTaolianReport(ctx, &bo.TaolianTaskPayload{
+			AccountID: accountID,
+			ClickID:   clickID,
+			Devices:   devices,
+			TS:        ts,
+		}); err != nil {
+			g.Log().Warningf(ctx, "enqueue taolian failed: %v", err)
 		}
 	}
 
